@@ -1,0 +1,55 @@
+{
+  "additionalProperties": false,
+  "description": "Maps an autonomous task onto Scrum artifacts.\n\nA task cannot enter execution unless every required field here is present\nand acceptance criteria are testable (enforced by ``scrum_gate``).",
+  "properties": {
+    "product_backlog_item_id": {
+      "default": "",
+      "title": "Product Backlog Item Id",
+      "type": "string"
+    },
+    "product_backlog_item_title": {
+      "default": "",
+      "title": "Product Backlog Item Title",
+      "type": "string"
+    },
+    "sprint_id": {
+      "default": "",
+      "title": "Sprint Id",
+      "type": "string"
+    },
+    "sprint_goal": {
+      "default": "",
+      "title": "Sprint Goal",
+      "type": "string"
+    },
+    "sprint_backlog_task_id": {
+      "default": "",
+      "title": "Sprint Backlog Task Id",
+      "type": "string"
+    },
+    "acceptance_criteria": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Acceptance Criteria",
+      "type": "array"
+    },
+    "definition_of_done_version": {
+      "default": "",
+      "title": "Definition Of Done Version",
+      "type": "string"
+    },
+    "increment_candidate": {
+      "default": false,
+      "title": "Increment Candidate",
+      "type": "boolean"
+    },
+    "supports_sprint_goal": {
+      "default": true,
+      "title": "Supports Sprint Goal",
+      "type": "boolean"
+    }
+  },
+  "title": "ScrumMapping",
+  "type": "object"
+}

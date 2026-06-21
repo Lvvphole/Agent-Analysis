@@ -1,0 +1,128 @@
+{
+  "$defs": {
+    "Decision": {
+      "description": "Verifier / final decision values.",
+      "enum": [
+        "PASS",
+        "FAIL",
+        "BLOCKED",
+        "PENDING"
+      ],
+      "title": "Decision",
+      "type": "string"
+    },
+    "LedgerEntry": {
+      "additionalProperties": false,
+      "properties": {
+        "entry_id": {
+          "title": "Entry Id",
+          "type": "string"
+        },
+        "timestamp": {
+          "default": "",
+          "title": "Timestamp",
+          "type": "string"
+        },
+        "artifact_type": {
+          "enum": [
+            "DIFF",
+            "TEST",
+            "LINT",
+            "TYPECHECK",
+            "BUILD",
+            "VERIFIER_REPORT",
+            "PR",
+            "CHECKPOINT",
+            "COMMAND_OUTPUT",
+            "SCOPE_CHANGE",
+            "ANALYSIS_REPORT",
+            "SCRUM_MAPPING",
+            "STRATEGIC_REVIEW"
+          ],
+          "title": "Artifact Type",
+          "type": "string"
+        },
+        "artifact_path": {
+          "title": "Artifact Path",
+          "type": "string"
+        },
+        "command": {
+          "default": "",
+          "title": "Command",
+          "type": "string"
+        },
+        "result": {
+          "default": "INFO",
+          "enum": [
+            "PASS",
+            "FAIL",
+            "BLOCKED",
+            "INFO"
+          ],
+          "title": "Result",
+          "type": "string"
+        },
+        "hash": {
+          "default": "",
+          "title": "Hash",
+          "type": "string"
+        },
+        "recorded_by": {
+          "default": "",
+          "title": "Recorded By",
+          "type": "string"
+        }
+      },
+      "required": [
+        "entry_id",
+        "artifact_type",
+        "artifact_path"
+      ],
+      "title": "LedgerEntry",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "task_id": {
+      "title": "Task Id",
+      "type": "string"
+    },
+    "run_id": {
+      "title": "Run Id",
+      "type": "string"
+    },
+    "ledger_entries": {
+      "items": {
+        "$ref": "#/$defs/LedgerEntry"
+      },
+      "title": "Ledger Entries",
+      "type": "array"
+    },
+    "final_status": {
+      "$ref": "#/$defs/Decision",
+      "default": "PENDING"
+    },
+    "auto_merge": {
+      "default": false,
+      "title": "Auto Merge",
+      "type": "boolean"
+    },
+    "auto_deploy": {
+      "default": false,
+      "title": "Auto Deploy",
+      "type": "boolean"
+    },
+    "agent_self_certification_used": {
+      "default": false,
+      "title": "Agent Self Certification Used",
+      "type": "boolean"
+    }
+  },
+  "required": [
+    "task_id",
+    "run_id"
+  ],
+  "title": "EvidenceLedger",
+  "type": "object"
+}

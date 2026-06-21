@@ -1,0 +1,27 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+.venv/
+venv/
+.mypy_cache/
+.ruff_cache/
+
+# Node / Next.js
+node_modules/
+.next/
+dist/
+build/
+
+# Local run artifacts (evidence is written here at runtime).
+# The directory is tracked via artifacts/.gitkeep; its contents are not.
+artifacts/*
+!artifacts/.gitkeep
+
+# Env / editors
+.env
+.env.local
+.DS_Store
+.idea/
+.vscode/

@@ -1,0 +1,238 @@
+{
+  "$defs": {
+    "Decision": {
+      "description": "Verifier / final decision values.",
+      "enum": [
+        "PASS",
+        "FAIL",
+        "BLOCKED",
+        "PENDING"
+      ],
+      "title": "Decision",
+      "type": "string"
+    },
+    "StrategicProgrammingGate": {
+      "additionalProperties": false,
+      "properties": {
+        "change_amplification": {
+          "default": "PASS",
+          "enum": [
+            "PASS",
+            "FAIL"
+          ],
+          "title": "Change Amplification",
+          "type": "string"
+        },
+        "cognitive_load": {
+          "default": "PASS",
+          "enum": [
+            "PASS",
+            "FAIL"
+          ],
+          "title": "Cognitive Load",
+          "type": "string"
+        },
+        "unknown_unknowns": {
+          "default": "PASS",
+          "enum": [
+            "PASS",
+            "FAIL"
+          ],
+          "title": "Unknown Unknowns",
+          "type": "string"
+        },
+        "deep_module": {
+          "default": "PASS",
+          "enum": [
+            "PASS",
+            "FAIL"
+          ],
+          "title": "Deep Module",
+          "type": "string"
+        },
+        "interface_simplicity": {
+          "default": "PASS",
+          "enum": [
+            "PASS",
+            "FAIL"
+          ],
+          "title": "Interface Simplicity",
+          "type": "string"
+        },
+        "error_design": {
+          "default": "PASS",
+          "enum": [
+            "PASS",
+            "FAIL"
+          ],
+          "title": "Error Design",
+          "type": "string"
+        },
+        "duplication": {
+          "default": "PASS",
+          "enum": [
+            "PASS",
+            "FAIL"
+          ],
+          "title": "Duplication",
+          "type": "string"
+        },
+        "scope_control": {
+          "default": "PASS",
+          "enum": [
+            "PASS",
+            "FAIL"
+          ],
+          "title": "Scope Control",
+          "type": "string"
+        }
+      },
+      "title": "StrategicProgrammingGate",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "task_id": {
+      "title": "Task Id",
+      "type": "string"
+    },
+    "run_id": {
+      "title": "Run Id",
+      "type": "string"
+    },
+    "verifier_id": {
+      "title": "Verifier Id",
+      "type": "string"
+    },
+    "verifier_run_id": {
+      "title": "Verifier Run Id",
+      "type": "string"
+    },
+    "coding_agent_run_id": {
+      "title": "Coding Agent Run Id",
+      "type": "string"
+    },
+    "same_agent_verifier_check": {
+      "default": "PASS",
+      "enum": [
+        "PASS",
+        "FAIL"
+      ],
+      "title": "Same Agent Verifier Check",
+      "type": "string"
+    },
+    "functional_acceptance": {
+      "default": "FAIL",
+      "enum": [
+        "PASS",
+        "FAIL"
+      ],
+      "title": "Functional Acceptance",
+      "type": "string"
+    },
+    "test_status": {
+      "default": "NOT_APPLICABLE",
+      "enum": [
+        "PASS",
+        "FAIL",
+        "NOT_APPLICABLE"
+      ],
+      "title": "Test Status",
+      "type": "string"
+    },
+    "lint_status": {
+      "default": "NOT_APPLICABLE",
+      "enum": [
+        "PASS",
+        "FAIL",
+        "NOT_APPLICABLE"
+      ],
+      "title": "Lint Status",
+      "type": "string"
+    },
+    "typecheck_status": {
+      "default": "NOT_APPLICABLE",
+      "enum": [
+        "PASS",
+        "FAIL",
+        "NOT_APPLICABLE"
+      ],
+      "title": "Typecheck Status",
+      "type": "string"
+    },
+    "build_status": {
+      "default": "NOT_APPLICABLE",
+      "enum": [
+        "PASS",
+        "FAIL",
+        "NOT_APPLICABLE"
+      ],
+      "title": "Build Status",
+      "type": "string"
+    },
+    "scope_status": {
+      "default": "FAIL",
+      "enum": [
+        "PASS",
+        "FAIL"
+      ],
+      "title": "Scope Status",
+      "type": "string"
+    },
+    "strategic_programming_gate": {
+      "$ref": "#/$defs/StrategicProgrammingGate"
+    },
+    "evidence_status": {
+      "default": "FAIL",
+      "enum": [
+        "PASS",
+        "FAIL"
+      ],
+      "title": "Evidence Status",
+      "type": "string"
+    },
+    "pr_gate_status": {
+      "default": "NOT_READY",
+      "enum": [
+        "PASS",
+        "FAIL",
+        "NOT_READY"
+      ],
+      "title": "Pr Gate Status",
+      "type": "string"
+    },
+    "decision": {
+      "$ref": "#/$defs/Decision",
+      "default": "PENDING"
+    },
+    "failure_reasons": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Failure Reasons",
+      "type": "array"
+    },
+    "required_corrections": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Required Corrections",
+      "type": "array"
+    },
+    "timestamp": {
+      "default": "",
+      "title": "Timestamp",
+      "type": "string"
+    }
+  },
+  "required": [
+    "task_id",
+    "run_id",
+    "verifier_id",
+    "verifier_run_id",
+    "coding_agent_run_id"
+  ],
+  "title": "VerifierReport",
+  "type": "object"
+}

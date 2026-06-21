@@ -1,0 +1,140 @@
+{
+  "$defs": {
+    "ComplexityRisks": {
+      "additionalProperties": false,
+      "properties": {
+        "change_amplification": {
+          "default": "",
+          "title": "Change Amplification",
+          "type": "string"
+        },
+        "cognitive_load": {
+          "default": "",
+          "title": "Cognitive Load",
+          "type": "string"
+        },
+        "unknown_unknowns": {
+          "default": "",
+          "title": "Unknown Unknowns",
+          "type": "string"
+        }
+      },
+      "title": "ComplexityRisks",
+      "type": "object"
+    },
+    "DesignOption": {
+      "additionalProperties": false,
+      "properties": {
+        "option_id": {
+          "title": "Option Id",
+          "type": "string"
+        },
+        "summary": {
+          "default": "",
+          "title": "Summary",
+          "type": "string"
+        },
+        "tradeoffs": {
+          "default": "",
+          "title": "Tradeoffs",
+          "type": "string"
+        },
+        "rejected_or_selected": {
+          "default": "",
+          "title": "Rejected Or Selected",
+          "type": "string"
+        }
+      },
+      "required": [
+        "option_id"
+      ],
+      "title": "DesignOption",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "description": "Design-quality contract for a task.\n\n\"A task is not Done just because it works.\" This model captures the design\nreasoning that ``strategic_programming_gate`` evaluates.",
+  "properties": {
+    "responsibility_owner": {
+      "default": "",
+      "title": "Responsibility Owner",
+      "type": "string"
+    },
+    "complexity_risks": {
+      "$ref": "#/$defs/ComplexityRisks"
+    },
+    "design_options": {
+      "items": {
+        "$ref": "#/$defs/DesignOption"
+      },
+      "title": "Design Options",
+      "type": "array"
+    },
+    "selected_design": {
+      "default": "",
+      "title": "Selected Design",
+      "type": "string"
+    },
+    "interface_contract": {
+      "default": "",
+      "title": "Interface Contract",
+      "type": "string"
+    },
+    "complexity_hidden_where": {
+      "default": "",
+      "title": "Complexity Hidden Where",
+      "type": "string"
+    },
+    "errors_designed_out": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Errors Designed Out",
+      "type": "array"
+    },
+    "known_design_debt": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Known Design Debt",
+      "type": "array"
+    },
+    "introduces_shallow_passthrough": {
+      "default": false,
+      "title": "Introduces Shallow Passthrough",
+      "type": "boolean"
+    },
+    "complexity_leaks_into_callers": {
+      "default": false,
+      "title": "Complexity Leaks Into Callers",
+      "type": "boolean"
+    },
+    "error_handling_scattered": {
+      "default": false,
+      "title": "Error Handling Scattered",
+      "type": "boolean"
+    },
+    "invalid_states_unhandled": {
+      "default": false,
+      "title": "Invalid States Unhandled",
+      "type": "boolean"
+    },
+    "unjustified_duplication": {
+      "default": false,
+      "title": "Unjustified Duplication",
+      "type": "boolean"
+    },
+    "increases_change_amplification": {
+      "default": false,
+      "title": "Increases Change Amplification",
+      "type": "boolean"
+    },
+    "works_but_harder_to_change": {
+      "default": false,
+      "title": "Works But Harder To Change",
+      "type": "boolean"
+    }
+  },
+  "title": "StrategicProgramming",
+  "type": "object"
+}
