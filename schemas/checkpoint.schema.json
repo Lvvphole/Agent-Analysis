@@ -1,0 +1,230 @@
+{
+  "$defs": {
+    "Decision": {
+      "description": "Verifier / final decision values.",
+      "enum": [
+        "PASS",
+        "FAIL",
+        "BLOCKED",
+        "PENDING"
+      ],
+      "title": "Decision",
+      "type": "string"
+    },
+    "GateResult": {
+      "description": "Typed output of every gate.\n\nA gate never mutates state; it only reports a decision and the reasons\nbehind it. The orchestrator is responsible for acting on the result.",
+      "properties": {
+        "gate_name": {
+          "title": "Gate Name",
+          "type": "string"
+        },
+        "status": {
+          "$ref": "#/$defs/GateStatus"
+        },
+        "reasons": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Reasons",
+          "type": "array"
+        },
+        "required_corrections": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Required Corrections",
+          "type": "array"
+        }
+      },
+      "required": [
+        "gate_name",
+        "status"
+      ],
+      "title": "GateResult",
+      "type": "object"
+    },
+    "GateStatus": {
+      "description": "Gate decision values (Section 13).",
+      "enum": [
+        "PASS",
+        "FAIL",
+        "BLOCKED"
+      ],
+      "title": "GateStatus",
+      "type": "string"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "run_id": {
+      "title": "Run Id",
+      "type": "string"
+    },
+    "task_id": {
+      "default": "",
+      "title": "Task Id",
+      "type": "string"
+    },
+    "goal_id": {
+      "default": "",
+      "title": "Goal Id",
+      "type": "string"
+    },
+    "sprint_id": {
+      "default": "",
+      "title": "Sprint Id",
+      "type": "string"
+    },
+    "product_backlog_item_id": {
+      "default": "",
+      "title": "Product Backlog Item Id",
+      "type": "string"
+    },
+    "state": {
+      "title": "State",
+      "type": "string"
+    },
+    "previous_state": {
+      "default": "",
+      "title": "Previous State",
+      "type": "string"
+    },
+    "next_state": {
+      "default": "",
+      "title": "Next State",
+      "type": "string"
+    },
+    "branch": {
+      "default": "",
+      "title": "Branch",
+      "type": "string"
+    },
+    "commit_hash": {
+      "default": "",
+      "title": "Commit Hash",
+      "type": "string"
+    },
+    "diff_path": {
+      "default": "",
+      "title": "Diff Path",
+      "type": "string"
+    },
+    "test_output_path": {
+      "default": "",
+      "title": "Test Output Path",
+      "type": "string"
+    },
+    "verifier_report_path": {
+      "default": "",
+      "title": "Verifier Report Path",
+      "type": "string"
+    },
+    "evidence_ledger_path": {
+      "default": "",
+      "title": "Evidence Ledger Path",
+      "type": "string"
+    },
+    "evaluation_report_path": {
+      "default": "",
+      "title": "Evaluation Report Path",
+      "type": "string"
+    },
+    "pr_url": {
+      "default": "",
+      "title": "Pr Url",
+      "type": "string"
+    },
+    "auto_merge": {
+      "default": false,
+      "title": "Auto Merge",
+      "type": "boolean"
+    },
+    "auto_deploy": {
+      "default": false,
+      "title": "Auto Deploy",
+      "type": "boolean"
+    },
+    "agent_self_certified": {
+      "default": false,
+      "title": "Agent Self Certified",
+      "type": "boolean"
+    },
+    "executor_id": {
+      "default": "",
+      "title": "Executor Id",
+      "type": "string"
+    },
+    "coding_agent_id": {
+      "default": "",
+      "title": "Coding Agent Id",
+      "type": "string"
+    },
+    "coding_agent_run_id": {
+      "default": "",
+      "title": "Coding Agent Run Id",
+      "type": "string"
+    },
+    "verifier_id": {
+      "default": "",
+      "title": "Verifier Id",
+      "type": "string"
+    },
+    "verifier_run_id": {
+      "default": "",
+      "title": "Verifier Run Id",
+      "type": "string"
+    },
+    "verifier_decision": {
+      "$ref": "#/$defs/Decision",
+      "default": "PENDING"
+    },
+    "agent_attempt_count": {
+      "default": 0,
+      "title": "Agent Attempt Count",
+      "type": "integer"
+    },
+    "verifier_failure_count": {
+      "default": 0,
+      "title": "Verifier Failure Count",
+      "type": "integer"
+    },
+    "gate_results": {
+      "items": {
+        "$ref": "#/$defs/GateResult"
+      },
+      "title": "Gate Results",
+      "type": "array"
+    },
+    "next_action": {
+      "default": "",
+      "title": "Next Action",
+      "type": "string"
+    },
+    "local_project_path": {
+      "default": "C:\\Users\\Emory Harris\\projects\\agent-analysis",
+      "title": "Local Project Path",
+      "type": "string"
+    },
+    "github_repo_url": {
+      "default": "https://github.com/Lvvphole/Agent-Analysis",
+      "title": "Github Repo Url",
+      "type": "string"
+    },
+    "created_at": {
+      "default": "",
+      "title": "Created At",
+      "type": "string"
+    },
+    "updated_at": {
+      "default": "",
+      "title": "Updated At",
+      "type": "string"
+    }
+  },
+  "required": [
+    "run_id",
+    "state"
+  ],
+  "title": "Checkpoint",
+  "type": "object"
+}

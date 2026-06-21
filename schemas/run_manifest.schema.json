@@ -1,0 +1,188 @@
+{
+  "$defs": {
+    "RunType": {
+      "description": "Supported run types (Section 9.1).",
+      "enum": [
+        "READ_ONLY_ANALYSIS",
+        "IMPLEMENTATION"
+      ],
+      "title": "RunType",
+      "type": "string"
+    }
+  },
+  "additionalProperties": false,
+  "description": "Deterministic run manifest.\n\nNote on defaults: ``auto_merge`` / ``auto_deploy`` default to ``False`` and\n``parallel_tool_calls`` to ``False`` so that an under-specified manifest is\nsafe-by-default. The manifest gate still re-checks these explicitly because\na caller may set them to ``True``.",
+  "properties": {
+    "run_id": {
+      "default": "",
+      "title": "Run Id",
+      "type": "string"
+    },
+    "goal_id": {
+      "default": "",
+      "title": "Goal Id",
+      "type": "string"
+    },
+    "task_id": {
+      "default": "",
+      "title": "Task Id",
+      "type": "string"
+    },
+    "sprint_id": {
+      "default": "",
+      "title": "Sprint Id",
+      "type": "string"
+    },
+    "product_backlog_item_id": {
+      "default": "",
+      "title": "Product Backlog Item Id",
+      "type": "string"
+    },
+    "run_type": {
+      "$ref": "#/$defs/RunType"
+    },
+    "temperature": {
+      "default": 0,
+      "title": "Temperature",
+      "type": "number"
+    },
+    "top_p": {
+      "default": 1,
+      "title": "Top P",
+      "type": "number"
+    },
+    "seed": {
+      "default": 23,
+      "title": "Seed",
+      "type": "integer"
+    },
+    "model": {
+      "default": "",
+      "title": "Model",
+      "type": "string"
+    },
+    "prompt_hash": {
+      "default": "",
+      "title": "Prompt Hash",
+      "type": "string"
+    },
+    "schema_mode": {
+      "default": "strict",
+      "title": "Schema Mode",
+      "type": "string"
+    },
+    "tools": {
+      "default": "allowlisted",
+      "title": "Tools",
+      "type": "string"
+    },
+    "parallel_tool_calls": {
+      "default": false,
+      "title": "Parallel Tool Calls",
+      "type": "boolean"
+    },
+    "auto_merge": {
+      "default": false,
+      "title": "Auto Merge",
+      "type": "boolean"
+    },
+    "auto_deploy": {
+      "default": false,
+      "title": "Auto Deploy",
+      "type": "boolean"
+    },
+    "created_at": {
+      "default": "",
+      "title": "Created At",
+      "type": "string"
+    },
+    "executor_id": {
+      "default": "",
+      "title": "Executor Id",
+      "type": "string"
+    },
+    "coding_agent_id": {
+      "default": "",
+      "title": "Coding Agent Id",
+      "type": "string"
+    },
+    "coding_agent_run_id": {
+      "default": "",
+      "title": "Coding Agent Run Id",
+      "type": "string"
+    },
+    "verifier_id": {
+      "default": "",
+      "title": "Verifier Id",
+      "type": "string"
+    },
+    "verifier_run_id": {
+      "default": "",
+      "title": "Verifier Run Id",
+      "type": "string"
+    },
+    "definition_of_done_version": {
+      "default": "",
+      "title": "Definition Of Done Version",
+      "type": "string"
+    },
+    "allowed_commands": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Allowed Commands",
+      "type": "array"
+    },
+    "forbidden_commands": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Forbidden Commands",
+      "type": "array"
+    },
+    "files_in_scope": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Files In Scope",
+      "type": "array"
+    },
+    "files_out_of_scope": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Files Out Of Scope",
+      "type": "array"
+    },
+    "max_agent_attempts": {
+      "default": 3,
+      "title": "Max Agent Attempts",
+      "type": "integer"
+    },
+    "max_verifier_failures": {
+      "default": 2,
+      "title": "Max Verifier Failures",
+      "type": "integer"
+    },
+    "on_exhaustion": {
+      "default": "BLOCKED",
+      "title": "On Exhaustion",
+      "type": "string"
+    },
+    "local_project_path": {
+      "default": "C:\\Users\\Emory Harris\\projects\\agent-analysis",
+      "title": "Local Project Path",
+      "type": "string"
+    },
+    "github_repo_url": {
+      "default": "https://github.com/Lvvphole/Agent-Analysis",
+      "title": "Github Repo Url",
+      "type": "string"
+    }
+  },
+  "required": [
+    "run_type"
+  ],
+  "title": "RunManifest",
+  "type": "object"
+}
