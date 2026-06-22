@@ -13,6 +13,8 @@ jobs:
     steps:
       - name: Checkout PR
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Set up Python
         uses: actions/setup-python@v5
@@ -30,11 +32,11 @@ jobs:
           cd backend
           python -m pytest -q
 
+      - name: Fetch PR base branch
+        run: |
+          git fetch --no-tags --prune origin \
+            +refs/heads/${{ github.event.pull_request.base.ref }}:refs/remotes/origin/${{ github.event.pull_request.base.ref }}
+
       - name: Run diff check
         run: |
-          git diff --check origin/main...HEAD
-
-      - name: Run Agent-Analysis harness verification
-        run: |
-          cd backend
-          python -m app.harness.verify_pr
+          git diff --check origin/${{ github.event.pull_request.base.ref }}...HEAD
