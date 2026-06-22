@@ -122,6 +122,7 @@ def build_default_registry() -> HandlerRegistry:
     # Imported here to avoid import cycles (handlers import schemas/gates).
     from app.handlers import (
         analysis,
+        ci_failure,
         control,
         documentation,
         evaluation,
@@ -131,7 +132,7 @@ def build_default_registry() -> HandlerRegistry:
     )
 
     registry = HandlerRegistry()
-    for module in (control, analysis, implementation, verification, evaluation, pr, documentation):
+    for module in (control, analysis, implementation, verification, evaluation, pr, documentation, ci_failure):
         for handler in module.HANDLERS:
             registry.register(handler)
     return registry

@@ -121,6 +121,5 @@ def test_documentation_handlers_registered_others_deferred():
         "SecretScanHandler",
         "DependencyVulnerabilityHandler",
         "BuildHandler",
-        "CIFailureLogParserHandler",
     ):
         assert not registry.has(name), name
