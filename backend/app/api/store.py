@@ -20,6 +20,7 @@ class RunRecord:
     state: str = "INTAKE"
     verifier_report: VerifierReport | None = None
     chain_result: dict | None = None
+    llm_invocations: list = field(default_factory=list)
 
 
 @dataclass

@@ -18,6 +18,7 @@ from app.constants import (
     DEFAULT_ON_EXHAUSTION,
     RunType,
 )
+from app.schemas.model_policy import ModelSpec
 
 
 class RunManifest(BaseModel):
@@ -47,6 +48,11 @@ class RunManifest(BaseModel):
     schema_mode: str = "strict"
     tools: str = "allowlisted"
     parallel_tool_calls: bool = False
+
+    # Controlled multi-LLM registry (optional; empty => single-model behavior).
+    # When non-empty, validated by ``model_policy_gate`` via the manifest gate.
+    models: list[ModelSpec] = Field(default_factory=list)
+    allowed_model_ids: list[str] = Field(default_factory=list)
 
     # Release safety (Sections 6.4)
     auto_merge: bool = False
