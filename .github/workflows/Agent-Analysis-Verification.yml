@@ -1,0 +1,40 @@
+name: Agent-Analysis Verification
+
+on:
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  verify:
+    name: agent-analysis-verification
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout PR
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install backend dev dependencies
+        run: |
+          cd backend
+          python -m pip install --upgrade pip
+          python -m pip install -r requirements-dev.txt
+
+      - name: Run backend tests
+        run: |
+          cd backend
+          python -m pytest -q
+
+      - name: Run diff check
+        run: |
+          git diff --check origin/main...HEAD
+
+      - name: Run Agent-Analysis harness verification
+        run: |
+          cd backend
+          python -m app.harness.verify_pr
