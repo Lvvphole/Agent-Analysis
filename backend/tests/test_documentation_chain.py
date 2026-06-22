@@ -120,6 +120,8 @@ def test_documentation_handlers_registered_others_deferred():
     for name in (
         "SecretScanHandler",
         "DependencyVulnerabilityHandler",
-        "BuildHandler",
+        "AuthChangeRiskHandler",
+        "InputValidationRiskHandler",
+        "SecurityVerifierHandler",
     ):
         assert not registry.has(name), name

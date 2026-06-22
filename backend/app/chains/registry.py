@@ -130,6 +130,7 @@ _DEPENDENCY_UPDATE = ChainDefinition(
         "DependencyInventoryHandler",
         "DependencyRiskHandler",
         "LicenseCheckHandler",
+        "StrategicDesignGateHandler",
         "AgentInvocationHandler",
         "AgentOutputQuarantineHandler",
         "DiffCaptureHandler",

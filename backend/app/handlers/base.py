@@ -124,6 +124,7 @@ def build_default_registry() -> HandlerRegistry:
         analysis,
         ci_failure,
         control,
+        dependency,
         documentation,
         evaluation,
         implementation,
@@ -132,7 +133,7 @@ def build_default_registry() -> HandlerRegistry:
     )
 
     registry = HandlerRegistry()
-    for module in (control, analysis, implementation, verification, evaluation, pr, documentation, ci_failure):
+    for module in (control, analysis, implementation, verification, evaluation, pr, documentation, ci_failure, dependency):
         for handler in module.HANDLERS:
             registry.register(handler)
     return registry
