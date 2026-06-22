@@ -33,9 +33,9 @@ run → independent verifier approves → PR remains gated → human controls me
 
 ## What is implemented in this slice
 
-This slice delivers the **deterministic core** (MVP Build Order Phase 1, plus
-the storage primitives and the read-only analysis loop) — the part that can be
-fully verified with `pytest`.
+This slice delivers the **deterministic core** (schemas, gates, state machines,
+storage, the read-only analysis loop) **and the Chain of Responsibility routing
+layer** built on top of it — all fully verifiable with `pytest`.
 
 | Area | Status |
 | --- | --- |
@@ -51,6 +51,27 @@ fully verified with `pytest`.
 | Chain of Responsibility layer (router + executor + handlers, harness stays the authority) | done — `backend/app/chains/`, `backend/app/handlers/`, [`docs/chain_of_responsibility.md`](docs/chain_of_responsibility.md) |
 | Tests covering every hard rule in Section 19 + the chain layer | done — `backend/tests/` (138) |
 
+## Chain of Responsibility (task routing inside the harness)
+
+The harness stays the **outer authority**; a registered, immutable chain routes
+each `task_type` through ordered, bounded handlers. Full reference:
+[`docs/chain_of_responsibility.md`](docs/chain_of_responsibility.md).
+
+- **Registry** (`backend/app/chains/registry.py`) — 9 task types mapped to ordered
+  chains; unknown `task_type` → **BLOCKED**; a request cannot reorder a chain.
+- **Executor** (`backend/app/chains/chain_executor.py`) — runs handlers in
+  registered order only, routes every artifact through hashing → evidence ledger →
+  checkpoint, enforces the authority matrix, and decides final status (PASS
+  requires an independent `VERIFIER`).
+- **Authority matrix** (`backend/app/handlers/authority.py`) — only `VERIFIER`
+  decides PASS; only `PR_ACTION` creates a gated PR; `merge`/`deploy` are `false`
+  for every handler type. Agent narrative is quarantined out of the evidence ledger.
+- **Chains** — `AI_READINESS_AUDIT` runs end-to-end (read-only, hashed evidence,
+  independent verifier); `IMPLEMENTATION` is registered and ordered with honest
+  deferred stubs for side-effecting steps.
+- **API** — `GET /chains`, `GET /chains/{id}`, `POST /runs/{id}/chain`,
+  `GET /runs/{id}/chain/results` (no merge/deploy/complete/bypass/force-pass).
+
 ## Deferred to later phases (not yet built)
 
 These are intentionally **not** claimed as done:
@@ -61,8 +82,10 @@ These are intentionally **not** claimed as done:
   `docker-compose.yml` provisions Postgres for the next phase).
 - Docker sandbox runner, git runner, GitHub PR integration (the *policies* and
   *gates* that govern them exist; the side-effecting runners do not).
-- Bounded implementation workflow end-to-end (the gates, diff/scope/test
-  enforcement, verifier and PR gates it depends on are implemented and tested).
+- Live coding-agent invocation and side-effecting git/command runners. The
+  implementation **chain** runs end-to-end today via a caller-provided candidate
+  diff + test output (the *ManualAdapter* path); real Claude Code / git / command
+  execution is deferred.
 - The Next.js frontend control plane (Phase 6). See `frontend/README.md`.
 
 ## Hard gates (all enforced and unit-tested)
@@ -88,7 +111,7 @@ Notable invariants proven by the suite:
 ```bash
 cd backend
 python -m pip install -r requirements-dev.txt
-python -m pytest -q                   # 95 tests
+python -m pytest -q                   # 138 tests
 python scripts/generate_schemas.py    # regenerate ../schemas/*.schema.json
 uvicorn app.main:app --reload         # control API on http://127.0.0.1:8000
 ```
@@ -117,12 +140,15 @@ agent-analysis/
       storage/              # hashing, artifact store, ledger/checkpoint writers
       runners/              # sandbox policy (Section 12.5)
       workflows/            # read-only analysis loop (Section 17.1)
+      chains/               # CoR registry, executor, context (task routing)
+      handlers/             # bounded handlers + authority matrix
       api/                  # FastAPI routers (safe endpoints only)
       main.py               # FastAPI app
     scripts/generate_schemas.py
-    tests/                  # 95 tests (Section 19)
+    tests/                  # 138 tests
     pyproject.toml
   schemas/                  # generated JSON Schemas (Section 10)
+  docs/                     # chain_of_responsibility.md
   artifacts/                # runtime evidence (git-ignored except .gitkeep)
   frontend/                 # Phase 6 control plane (planned — see README)
   docker-compose.yml
