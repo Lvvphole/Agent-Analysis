@@ -48,7 +48,8 @@ fully verified with `pytest`.
 | Read-only AI-readiness analysis workflow (no repo mutation, hashed evidence, findings) | done — `backend/app/workflows/analysis_workflow.py` |
 | Control API (safe endpoints only — **no** merge/deploy/complete) | done — `backend/app/main.py`, `backend/app/api/` |
 | JSON Schemas generated from the models | done — `schemas/*.schema.json` |
-| Tests (95) covering every hard rule in Section 19 | done — `backend/tests/` |
+| Chain of Responsibility layer (router + executor + handlers, harness stays the authority) | done — `backend/app/chains/`, `backend/app/handlers/`, [`docs/chain_of_responsibility.md`](docs/chain_of_responsibility.md) |
+| Tests covering every hard rule in Section 19 + the chain layer | done — `backend/tests/` (138) |
 
 ## Deferred to later phases (not yet built)
 

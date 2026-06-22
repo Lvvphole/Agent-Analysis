@@ -105,3 +105,88 @@ def make_ledger(**overrides) -> EvidenceLedger:
 @pytest.fixture
 def manifest() -> RunManifest:
     return make_manifest()
+
+
+# --- Chain of Responsibility builders ---------------------------------------
+
+STRATEGIC_DESIGN = {
+    "responsibility_owner": "core",
+    "design_options": [
+        {"option_id": "A", "summary": "deep module", "tradeoffs": "simple",
+         "rejected_or_selected": "selected"},
+        {"option_id": "B", "summary": "mega validator", "tradeoffs": "complex",
+         "rejected_or_selected": "rejected"},
+    ],
+    "selected_design": "A",
+    "interface_contract": "handle(req, ctx) -> HandlerResult",
+}
+
+# A real candidate diff + passing test (the ManualAdapter evidence path).
+MANUAL_CANDIDATE = {
+    "agent_run_id": "agent-1",
+    "summary": "implemented the change",
+    "raw_output": "...agent narrative...",
+    "diff": "--- a/backend/app/x.py\n+++ b/backend/app/x.py\n@@\n-x=1\n+x=2\n",
+    "changed_files": ["backend/app/x.py"],
+    "git_status": " M backend/app/x.py",
+    "diff_check": "",
+}
+
+
+def make_chain_request(**overrides):
+    from app.constants import RunType
+    from app.schemas.chain import ChainRequest, TaskType
+
+    task_type = overrides.pop("task_type", TaskType.AI_READINESS_AUDIT)
+    mode = overrides.pop("mode", RunType.READ_ONLY_ANALYSIS)
+    base = dict(
+        run_id="run-1",
+        task_id="task-1",
+        task_type=task_type,
+        mode=mode,
+        scrum={
+            "product_backlog_item_id": "PBI-1",
+            "sprint_goal": "harden the harness",
+            "sprint_backlog_task_id": "T-1",
+            "definition_of_done_version": "dod-v1",
+            "acceptance_criteria": ["analysis must produce hashed evidence"],
+        },
+    )
+    base.update(overrides)
+    return ChainRequest(**base)
+
+
+def make_impl_request(**overrides):
+    from app.constants import RunType
+    from app.schemas.chain import TaskType
+
+    base = dict(
+        task_type=TaskType.IMPLEMENTATION,
+        mode=RunType.IMPLEMENTATION,
+        scope={"files_in_scope": ["backend/app/**"], "files_out_of_scope": []},
+        metadata={"strategic_design": STRATEGIC_DESIGN},
+    )
+    base.update(overrides)
+    base["scrum"] = overrides.get("scrum", {
+        "product_backlog_item_id": "PBI-1",
+        "sprint_goal": "add a bounded feature",
+        "sprint_backlog_task_id": "T-1",
+        "definition_of_done_version": "dod-v1",
+        "acceptance_criteria": ["feature must return 200"],
+    })
+    return make_chain_request(**base)
+
+
+@pytest.fixture
+def temp_repo(tmp_path):
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    (repo / "main.py").write_text("print('hi')\n")
+    return repo
+
+
+@pytest.fixture
+def artifact_store(tmp_path):
+    from app.storage.artifact_store import ArtifactStore
+
+    return ArtifactStore(tmp_path / "artifacts")
