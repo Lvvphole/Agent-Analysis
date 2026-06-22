@@ -49,7 +49,8 @@ layer** built on top of it — all fully verifiable with `pytest`.
 | Control API (safe endpoints only — **no** merge/deploy/complete) | done — `backend/app/main.py`, `backend/app/api/` |
 | JSON Schemas generated from the models | done — `schemas/*.schema.json` |
 | Chain of Responsibility layer (router + executor + handlers, harness stays the authority) | done — `backend/app/chains/`, `backend/app/handlers/`, [`docs/chain_of_responsibility.md`](docs/chain_of_responsibility.md) |
-| Tests covering every hard rule in Section 19 + the chain layer | done — `backend/tests/` (138) |
+| Side-effecting git capture + allowlisted command runners (wired into the implementation chain) | done — `backend/app/runners/git_runner.py`, `command_runner.py` |
+| Tests covering every hard rule in Section 19 + the chain layer + runners | done — `backend/tests/` (155) |
 
 ## Chain of Responsibility (task routing inside the harness)
 
@@ -67,8 +68,9 @@ each `task_type` through ordered, bounded handlers. Full reference:
   decides PASS; only `PR_ACTION` creates a gated PR; `merge`/`deploy` are `false`
   for every handler type. Agent narrative is quarantined out of the evidence ledger.
 - **Chains** — `AI_READINESS_AUDIT` runs end-to-end (read-only, hashed evidence,
-  independent verifier); `IMPLEMENTATION` is registered and ordered with honest
-  deferred stubs for side-effecting steps.
+  independent verifier); `IMPLEMENTATION` captures a real working-tree diff (git
+  runner) and runs real allowlisted tests (command runner), gating the PR behind
+  an independent verifier PASS.
 - **API** — `GET /chains`, `GET /chains/{id}`, `POST /runs/{id}/chain`,
   `GET /runs/{id}/chain/results` (no merge/deploy/complete/bypass/force-pass).
 
@@ -82,10 +84,10 @@ These are intentionally **not** claimed as done:
   `docker-compose.yml` provisions Postgres for the next phase).
 - Docker sandbox runner, git runner, GitHub PR integration (the *policies* and
   *gates* that govern them exist; the side-effecting runners do not).
-- Live coding-agent invocation and side-effecting git/command runners. The
-  implementation **chain** runs end-to-end today via a caller-provided candidate
-  diff + test output (the *ManualAdapter* path); real Claude Code / git / command
-  execution is deferred.
+- Live Claude Code invocation, the Docker sandbox runner, and the GitHub push/PR
+  runner. The implementation chain now captures a **real** working-tree diff (git
+  runner) and runs **real** allowlisted tests (command runner); the ManualAdapter
+  metadata path remains for environments without a working tree.
 - The Next.js frontend control plane (Phase 6). See `frontend/README.md`.
 
 ## Hard gates (all enforced and unit-tested)
@@ -111,7 +113,7 @@ Notable invariants proven by the suite:
 ```bash
 cd backend
 python -m pip install -r requirements-dev.txt
-python -m pytest -q                   # 138 tests
+python -m pytest -q                   # 155 tests
 python scripts/generate_schemas.py    # regenerate ../schemas/*.schema.json
 uvicorn app.main:app --reload         # control API on http://127.0.0.1:8000
 ```
@@ -138,14 +140,14 @@ agent-analysis/
       schemas/              # Pydantic contracts (Section 9)
       gates/                # pure-function gates (Section 13)
       storage/              # hashing, artifact store, ledger/checkpoint writers
-      runners/              # sandbox policy (Section 12.5)
+      runners/              # sandbox policy + git capture + command runner
       workflows/            # read-only analysis loop (Section 17.1)
       chains/               # CoR registry, executor, context (task routing)
       handlers/             # bounded handlers + authority matrix
       api/                  # FastAPI routers (safe endpoints only)
       main.py               # FastAPI app
     scripts/generate_schemas.py
-    tests/                  # 138 tests
+    tests/                  # 155 tests
     pyproject.toml
   schemas/                  # generated JSON Schemas (Section 10)
   docs/                     # chain_of_responsibility.md

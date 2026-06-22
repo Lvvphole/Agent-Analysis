@@ -190,3 +190,25 @@ def artifact_store(tmp_path):
     from app.storage.artifact_store import ArtifactStore
 
     return ArtifactStore(tmp_path / "artifacts")
+
+
+@pytest.fixture
+def git_repo(tmp_path):
+    """An initialised git repo with one committed in-scope file."""
+    import subprocess
+
+    repo = tmp_path / "gitrepo"
+    (repo / "backend" / "app").mkdir(parents=True)
+    (repo / "backend" / "app" / "x.py").write_text("x = 1\n")
+
+    def git(*args):
+        subprocess.run(
+            ["git", "-C", str(repo), "-c", "user.email=t@t", "-c", "user.name=t", *args],
+            check=True,
+            capture_output=True,
+        )
+
+    subprocess.run(["git", "init", "-q", str(repo)], check=True, capture_output=True)
+    git("add", "-A")
+    git("commit", "-q", "-m", "init")
+    return repo

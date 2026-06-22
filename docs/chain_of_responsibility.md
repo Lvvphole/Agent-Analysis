@@ -62,7 +62,7 @@ chain as an immutable, ordered tuple of handler names:
 | task_type | chain |
 | --- | --- |
 | AI_READINESS_AUDIT | `ai_readiness_audit_chain` (fully implemented, read-only) |
-| IMPLEMENTATION / REFACTOR / TEST_COVERAGE_EXPANSION | `implementation_chain` (implemented; side-effecting steps honestly deferred) |
+| IMPLEMENTATION / REFACTOR / TEST_COVERAGE_EXPANSION | `implementation_chain` (implemented; real git diff capture + allowlisted test runner; live agent invocation + GitHub push deferred) |
 | BUG_FIX | `bug_fix_chain` (registered; execution deferred) |
 | SECURITY_REVIEW | `security_review_chain` (registered; deferred) |
 | DEPENDENCY_UPDATE | `dependency_update_chain` (registered; deferred) |
@@ -95,11 +95,20 @@ states (read-only: `AGENT_INVOKE_READONLY → EVIDENCE_CAPTURE`; implementation:
 `AGENT_INVOKE → DIFF_CAPTURE → TEST`). Existing transition guards in
 `backend/app/state_machine.py` are unchanged.
 
+## Implemented runners
+
+`backend/app/runners/git_runner.py` (capture only: `git status --short`,
+`git diff`, `git diff --check`, changed files — **no** merge, **no** push) and
+`backend/app/runners/command_runner.py` (allowlisted-only via the sandbox
+policy, captured stdout/stderr/exit code, enforced timeout) back the
+`DiffCaptureHandler` and `TestRunnerHandler`. The implementation chain therefore
+captures a real working-tree diff and runs real tests, then gates the PR behind
+an independent verifier PASS. The `request.metadata` ManualAdapter path is kept
+for environments without a working tree.
+
 ## Honestly deferred
 
-Side-effecting git/command/Docker/GitHub runners, real Claude Code invocation,
-Temporal, PostgreSQL persistence, the five non-core chains' execution, security
-and license scanners, AST analysis, and the frontend remain deferred. The
-implementation chain accepts caller-provided **real** candidate evidence (a diff
-and test output) via `request.metadata` (the ManualAdapter path) so it can be
-exercised end-to-end without faking a side effect.
+Live Claude Code invocation, the Docker sandbox runner, the GitHub push/PR runner
+(branch/commit/push/merge), Temporal, PostgreSQL persistence, the five non-core
+chains' execution, security and license scanners, AST analysis, and the frontend
+remain deferred.
