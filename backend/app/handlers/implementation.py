@@ -239,6 +239,99 @@ class ScopeDiffHandler(Handler):
         return self._from_gates([gate])
 
 
+class FailureReproductionHandler(Handler):
+    """Bug-fix precondition (Section 11.3): prove the reported failure actually
+    reproduces *before* a fix is attempted. A fix with no failing baseline has
+    nothing for the verifier to confirm, so this handler BLOCKS when no
+    reproduction is supplied and FAILS when the supplied reproduction does not
+    actually fail. It records the failing run as hashed evidence but does NOT
+    append it to ``context.test_outcomes`` — the post-fix ``TestRunnerHandler``
+    owns the outcomes the verifier's test gate evaluates (which must all pass).
+    Mirrors ``TestRunnerHandler``'s evidence model: a caller-supplied
+    ``test_outcomes`` (ManualAdapter path) or a real allowlisted command run.
+    """
+
+    name = "FailureReproductionHandler"
+    handler_type = HandlerType.READ_ONLY_COMMAND
+
+    def handle(self, request: ChainRequest, context: ChainContext):
+        repro = request.metadata.get("reproduction")
+        if not repro:
+            return self._fail(
+                ["reproduction required; a bug fix must first reproduce the failure"],
+                blocked=True,
+                corrections=[
+                    "supply request.metadata.reproduction with a failing "
+                    "test_outcomes entry or a test_commands list"
+                ],
+            )
+
+        outcomes = repro.get("test_outcomes")
+        if outcomes:
+            # ManualAdapter path: caller-supplied reproduction outcomes.
+            logs = outcomes
+            command = repro.get("command", "python -m pytest")
+        else:
+            commands = repro.get("test_commands")
+            if not commands:
+                return self._fail(
+                    ["reproduction provided without test_outcomes or test_commands"],
+                    blocked=True,
+                )
+            policy = build_policy(
+                RunType.IMPLEMENTATION,
+                files_in_scope=request.scope.files_in_scope,
+                allowed_commands=repro.get("allowed_commands", commands),
+                forbidden_commands=repro.get("forbidden_commands", []),
+            )
+            runner = CommandRunner(policy, cwd=context.repo_fs_path)
+            logs, rejected = [], []
+            for cmd in commands:
+                res = runner.run(cmd)
+                if res.rejected:
+                    rejected.append(f"{cmd}: {res.reason}")
+                    continue
+                logs.append(
+                    {
+                        "command": cmd,
+                        "exit_code": res.exit_code,
+                        "timed_out": res.timed_out,
+                        "stdout": res.stdout,
+                        "stderr": res.stderr,
+                    }
+                )
+            if rejected:
+                return self._fail(
+                    [f"command not allowed: {r}" for r in rejected], blocked=True
+                )
+            command = "; ".join(commands)
+
+        # A valid reproduction must actually fail: a non-zero exit code is the
+        # baseline evidence the verifier later confirms was flipped to passing.
+        reproduced = any(o.get("exit_code") not in (0, None) for o in logs)
+        art = context.record_artifact(
+            name="failure_reproduction.log",
+            data=json.dumps(logs, indent=2),
+            artifact_type="TEST",
+            command=command,
+            result="FAIL" if reproduced else "PASS",
+            recorded_by=self.name,
+        )
+        if not reproduced:
+            return self._fail(
+                [
+                    "reproduction did not fail; no baseline bug to fix "
+                    "(all reproduction commands exited 0)"
+                ],
+            )
+        context.shared["reproduction"] = {
+            "command": command,
+            "artifact": art.path,
+            "outcomes": logs,
+        }
+        return self._ok(artifacts=[art.path], metadata={"reproduced": True})
+
+
 HANDLERS = [
     StrategicDesignGateHandler(),
     AgentInvocationHandler(),
@@ -247,4 +340,5 @@ HANDLERS = [
     TestRunnerHandler(),
     StaticCheckHandler(),
     ScopeDiffHandler(),
+    FailureReproductionHandler(),
 ]
