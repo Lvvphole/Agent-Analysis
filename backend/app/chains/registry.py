@@ -107,6 +107,7 @@ _SECURITY_REVIEW = ChainDefinition(
         "ManifestValidationHandler",
         "ScrumMappingHandler",
         "ScopeValidationHandler",
+        "SecurityReviewTestsNotApplicableHandler",
         "DiffCaptureHandler",
         "SecretScanHandler",
         "DependencyVulnerabilityHandler",

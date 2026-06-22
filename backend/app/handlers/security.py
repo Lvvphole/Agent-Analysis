@@ -28,7 +28,7 @@ from app.gates.evidence_gate import evidence_gate
 from app.gates.no_self_certification_gate import no_self_certification_gate
 from app.gates.scope_gate import scope_gate
 from app.handlers.base import Handler
-from app.schemas.chain import ChainRequest, HandlerType
+from app.schemas.chain import ChainRequest, HandlerType, TaskType
 from app.schemas.gate_result import GateResult
 
 _BLOCKING_SEVERITIES = {"HIGH", "CRITICAL"}
@@ -86,6 +86,53 @@ def _scan(context: ChainContext, patterns) -> list[str]:
                 if rx.search(line):
                     findings.append(f"{norm}:{lineno}: {label}")
     return findings
+
+
+class SecurityReviewTestsNotApplicableHandler(Handler):
+    """Declare, *before* the evidence gate, that SECURITY_REVIEW has no test
+    runner in this chain, so tests are NOT_APPLICABLE.
+
+    ``EvidenceGateHandler`` requires a ``TEST`` artifact for implementation-mode
+    requests unless ``metadata.tests_not_applicable`` is set. SECURITY_REVIEW
+    reviews an existing diff and never runs tests; this handler makes that an
+    explicit, auditable declaration (recorded as hashed evidence) rather than a
+    hidden requirement the caller must remember. It is scoped to SECURITY_REVIEW
+    only, so chains that include ``TestRunnerHandler`` keep their full
+    ``(DIFF, TEST)`` evidence requirement.
+    """
+
+    name = "SecurityReviewTestsNotApplicableHandler"
+    handler_type = HandlerType.PURE_CHECK
+
+    _REASON = (
+        "SECURITY_REVIEW has no test runner in this chain; security evidence is "
+        "supplied by security scan/risk handlers."
+    )
+
+    def handle(self, request: ChainRequest, context: ChainContext):
+        if request.task_type != TaskType.SECURITY_REVIEW:
+            # Never weakens chains that legitimately run tests.
+            return self._skip("only applies to SECURITY_REVIEW")
+        # The evidence gate reads request.metadata; declare tests NOT_APPLICABLE
+        # without overwriting a caller-supplied reason.
+        request.metadata["tests_not_applicable"] = True
+        request.metadata.setdefault("tests_not_applicable_reason", self._REASON)
+        context.shared["tests_not_applicable"] = True
+        art = context.record_artifact(
+            name="security_review_tests_not_applicable.json",
+            data=json.dumps(
+                {
+                    "task_type": request.task_type.value,
+                    "tests_not_applicable": True,
+                    "reason": self._REASON,
+                },
+                indent=2,
+            ),
+            artifact_type="ANALYSIS_REPORT",
+            command="security_review_tests_not_applicable",
+            recorded_by=self.name,
+        )
+        return self._ok(artifacts=[art.path], metadata={"tests_not_applicable": True})
 
 
 class SecretScanHandler(Handler):
@@ -247,6 +294,7 @@ class SecurityVerifierHandler(Handler):
 
 
 HANDLERS = [
+    SecurityReviewTestsNotApplicableHandler(),
     SecretScanHandler(),
     DependencyVulnerabilityHandler(),
     AuthChangeRiskHandler(),

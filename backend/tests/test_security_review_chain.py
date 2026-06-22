@@ -68,7 +68,9 @@ def _run(store, repo, metadata):
 
 
 def _meta(**overrides):
-    meta = {"tests_not_applicable": True, "tests_not_applicable_reason": "security review"}
+    # Caller does NOT set tests_not_applicable: the chain's
+    # SecurityReviewTestsNotApplicableHandler declares it before the evidence gate.
+    meta = {}
     meta.update(overrides)
     return meta
 
@@ -140,11 +142,55 @@ def test_requires_independent_verifier(review_repo, artifact_store):
     assert verifier.status.value == "PASS"
 
 
+def test_reaches_verifier_without_caller_test_flag(review_repo, artifact_store):
+    # Regression for the P2 review: a SECURITY_REVIEW request that supplies NO
+    # test evidence and does NOT set tests_not_applicable must still pass the
+    # evidence gate and reach the independent verifier — the chain handler
+    # declares tests NOT_APPLICABLE before EvidenceGateHandler.
+    _change(review_repo, "feature.py", "def add(a, b):\n    return a + b\n")
+    result = _run(artifact_store, review_repo, {})  # no metadata at all
+
+    by_name = {h.handler_name: h for h in result.handler_results}
+    decl = by_name["SecurityReviewTestsNotApplicableHandler"]
+    assert decl.status.value == "PASS"
+    assert decl.metadata.get("tests_not_applicable") is True
+    # Evidence gate did NOT fail for a missing TEST artifact.
+    assert by_name["EvidenceGateHandler"].status.value == "PASS"
+    # The independent verifier ran and certified.
+    assert "SecurityVerifierHandler" in by_name
+    assert by_name["SecurityVerifierHandler"].status.value == "PASS"
+    assert result.verifier_decision == Decision.PASS
+    assert result.final_status == "PASS"
+    # The declaration is recorded as a hashed artifact (not a fabricated test).
+    assert any("security_review_tests_not_applicable" in a for a in decl.artifacts_created)
+    # Preserved hard rules: gated PR, never auto-merged/deployed.
+    assert result.pr_status == PrStatus.GATED
+    assert result.auto_merge is False and result.auto_deploy is False
+
+
+def test_declaration_scoped_to_security_review():
+    # The handler must not weaken non-security chains: on any other task type it
+    # is a no-op (SKIPPED) and never sets tests_not_applicable.
+    from app.handlers.security import SecurityReviewTestsNotApplicableHandler
+    from app.schemas.chain import ChainRequest
+
+    handler = SecurityReviewTestsNotApplicableHandler()
+
+    class _Ctx:
+        pass
+
+    req = ChainRequest(task_type=TaskType.IMPLEMENTATION, mode=RunType.IMPLEMENTATION)
+    result = handler.handle(req, _Ctx())
+    assert result.status.value == "SKIPPED"
+    assert "tests_not_applicable" not in req.metadata
+
+
 def test_security_handlers_registered():
     from app.handlers.base import build_default_registry
 
     registry = build_default_registry()
     for name in (
+        "SecurityReviewTestsNotApplicableHandler",
         "SecretScanHandler",
         "DependencyVulnerabilityHandler",
         "AuthChangeRiskHandler",
