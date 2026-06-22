@@ -66,12 +66,15 @@ chain as an immutable, ordered tuple of handler names:
 | BUG_FIX | `bug_fix_chain` (registered; execution deferred) |
 | SECURITY_REVIEW | `security_review_chain` (registered; deferred) |
 | DEPENDENCY_UPDATE | `dependency_update_chain` (registered; deferred) |
-| DOCUMENTATION_UPDATE | `documentation_update_chain` (registered; deferred) |
+| DOCUMENTATION_UPDATE | `documentation_update_chain` (implemented; pure/read-only doc-gap, repo-relative link check, independent doc verifier; diff required, tests NOT_APPLICABLE) |
 | CI_FAILURE_REPAIR | `ci_failure_repair_chain` (registered; deferred) |
 
-The five deferred chains are registered so routing is deterministic and
-complete; executing them BLOCKS on the first unimplemented handler with an
-explicit reason — no faked behavior.
+The four remaining deferred chains (BUG_FIX, SECURITY_REVIEW, DEPENDENCY_UPDATE,
+CI_FAILURE_REPAIR) are registered so routing is deterministic and complete;
+executing them BLOCKS on the first unimplemented handler with an explicit
+reason — no faked behavior. Their deferred handlers require side-effecting or
+external integrations (command/build runners, CVE/license feeds, CI-log access)
+that the prior build deferred.
 
 ## How the verifier stays independent
 

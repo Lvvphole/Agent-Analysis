@@ -120,10 +120,18 @@ def build_default_registry() -> HandlerRegistry:
     """Register every implemented handler. Deferred handlers are intentionally
     absent; the executor BLOCKS when a chain references one."""
     # Imported here to avoid import cycles (handlers import schemas/gates).
-    from app.handlers import analysis, control, evaluation, implementation, pr, verification
+    from app.handlers import (
+        analysis,
+        control,
+        documentation,
+        evaluation,
+        implementation,
+        pr,
+        verification,
+    )
 
     registry = HandlerRegistry()
-    for module in (control, analysis, implementation, verification, evaluation, pr):
+    for module in (control, analysis, implementation, verification, evaluation, pr, documentation):
         for handler in module.HANDLERS:
             registry.register(handler)
     return registry
