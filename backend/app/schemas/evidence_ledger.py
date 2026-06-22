@@ -26,6 +26,7 @@ ArtifactType = Literal[
     "ANALYSIS_REPORT",
     "SCRUM_MAPPING",
     "STRATEGIC_REVIEW",
+    "LLM_INVOCATION",
 ]
 
 LedgerResult = Literal["PASS", "FAIL", "BLOCKED", "INFO"]

@@ -9,7 +9,7 @@ from __future__ import annotations
 
 from fastapi import FastAPI
 
-from app.api import routes_chains, routes_runs
+from app.api import routes_chains, routes_models, routes_runs
 
 app = FastAPI(
     title="Agent-Analysis Control API",
@@ -22,6 +22,7 @@ app = FastAPI(
 
 app.include_router(routes_runs.router)
 app.include_router(routes_chains.router)
+app.include_router(routes_models.router)
 
 
 @app.get("/health")

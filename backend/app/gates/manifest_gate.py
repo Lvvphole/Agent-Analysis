@@ -11,6 +11,7 @@ from app.constants import (
     CANONICAL_LOCAL_PROJECT_PATH,
     RunType,
 )
+from app.gates.model_policy_gate import model_policy_gate
 from app.schemas.gate_result import GateResult
 from app.schemas.run_manifest import RunManifest
 
@@ -70,5 +71,9 @@ def manifest_gate(manifest: RunManifest) -> GateResult:
         reasons.append(
             "github_repo_url must equal " + CANONICAL_GITHUB_REPO_URL
         )
+
+    # Controlled multi-LLM runs: fold in the model policy gate (no-op if empty).
+    if manifest.models:
+        reasons.extend(model_policy_gate(manifest).reasons)
 
     return GateResult.of(GATE_NAME, reasons)
