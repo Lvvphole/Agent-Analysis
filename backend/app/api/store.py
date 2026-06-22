@@ -19,6 +19,7 @@ class RunRecord:
     manifest: RunManifest
     state: str = "INTAKE"
     verifier_report: VerifierReport | None = None
+    chain_result: dict | None = None
 
 
 @dataclass
