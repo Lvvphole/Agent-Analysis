@@ -110,13 +110,14 @@ def test_requires_independent_verifier(tmp_path, artifact_store):
     assert result.final_status != "PASS"
 
 
-def test_documentation_handlers_registered_others_deferred():
+def test_documentation_handlers_registered():
     from app.handlers.base import build_default_registry
 
     registry = build_default_registry()
     for name in ("DocumentationGapHandler", "LinkCheckHandler", "DocumentationVerifierHandler"):
         assert registry.has(name), name
-    # The genuinely side-effecting/external secondary-chain handlers stay deferred.
+    # With the SECURITY_REVIEW chain implemented, no chain handler remains deferred:
+    # every handler referenced by every registered chain now resolves.
     for name in (
         "SecretScanHandler",
         "DependencyVulnerabilityHandler",
@@ -124,4 +125,4 @@ def test_documentation_handlers_registered_others_deferred():
         "InputValidationRiskHandler",
         "SecurityVerifierHandler",
     ):
-        assert not registry.has(name), name
+        assert registry.has(name), name
