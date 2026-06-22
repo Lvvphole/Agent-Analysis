@@ -69,6 +69,14 @@ class ChainContext:
     artifacts: list[Artifact] = field(default_factory=list)
     shared: dict = field(default_factory=dict)
 
+    # Optional runtime services threaded in by the RuntimeExecutor. When absent
+    # the agent/tool steps SKIP and the deterministic chain remains the proof.
+    # Typed loosely to avoid import cycles (agents/tools import schemas/context).
+    agent_specs: list = field(default_factory=list)
+    agent_adapters: dict = field(default_factory=dict)
+    tool_registry: object | None = None
+    tool_policy: object | None = None
+
     @property
     def run_id(self) -> str:
         return self.request.run_id

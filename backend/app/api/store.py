@@ -9,6 +9,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 
+from app.schemas.chain import ChainExecutionResult
 from app.schemas.run_manifest import RunManifest
 from app.schemas.verifier_report import VerifierReport
 
@@ -20,6 +21,7 @@ class RunRecord:
     state: str = "INTAKE"
     verifier_report: VerifierReport | None = None
     chain_result: dict | None = None
+    chain_execution_result: ChainExecutionResult | None = None
     llm_invocations: list = field(default_factory=list)
 
 

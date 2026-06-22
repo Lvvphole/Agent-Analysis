@@ -9,14 +9,25 @@ from __future__ import annotations
 
 import json
 
+from app.agents.provider import AgentInvocationRequest
+from app.agents.runtime import AgentRuntime
 from app.chains.context import ChainContext, snapshot_repo
 from app.handlers.base import Handler
+from app.llm.recorder import LLMInvocationRecorder
+from app.parsing.quarantine import quarantine_agent_output
+from app.parsing.structured_parser import parse_structured_output
 from app.schemas.chain import ChainRequest, HandlerType
+from app.schemas.model_policy import ModelRole
+from app.tools.executor import ToolExecutor
 from app.workflows.analysis_workflow import (
     _assess_readiness,
     _discover_commands,
     _inventory,
 )
+
+# Read-only tools the analysis agent step runs through the controlled tool
+# runtime to build its (advisory) prompt context.
+_AGENT_TOOLS = ("list_repo_tree", "discover_commands", "inspect_ci_config", "inspect_dependencies")
 
 
 class RepoInventoryHandler(Handler):
@@ -111,6 +122,91 @@ class ReadOnlyComplianceHandler(Handler):
         return self._ok()
 
 
+class AnalysisAgentInvocationHandler(Handler):
+    """Optional controlled analyst step. Runs read-only tools through the tool
+    runtime, invokes the declared ANALYST model via the agent runtime, and
+    quarantines the raw output. The agent only informs context — it never
+    decides PASS and never enters the evidence ledger as proof.
+
+    Read-only authority (not AGENT_INVOCATION) so repo mutation is forbidden. If
+    no agent is configured for the run it SKIPs; if a provider is configured but
+    unavailable it BLOCKs (never a fabricated PASS).
+    """
+
+    name = "AnalysisAgentInvocationHandler"
+    handler_type = HandlerType.READ_ONLY_COMMAND
+
+    def handle(self, request: ChainRequest, context: ChainContext):
+        if not context.agent_specs:
+            return self._skip("no analysis agent configured; deterministic analysis only")
+
+        # Run read-only repo tools through the controlled tool runtime.
+        tool_summaries: list[str] = []
+        if context.tool_registry is not None and context.tool_policy is not None:
+            executor = ToolExecutor(context.tool_registry, context.tool_policy)
+            for tool_name in _AGENT_TOOLS:
+                if not context.tool_registry.has(tool_name):
+                    continue
+                res = executor.run(context, tool_name, request.mode)
+                tool_summaries.append(f"{tool_name}: {res.status} ({res.artifact_hash[:12]})")
+
+        prompt = (
+            "Assess this repository's AI-readiness. Respond as strict JSON with keys "
+            "summary, risks, recommended_actions, confidence.\n"
+            f"tool_runs: {json.dumps(tool_summaries)}\n"
+            f"readiness: {json.dumps(context.readiness_report)}"
+        )
+
+        recorder = LLMInvocationRecorder(
+            context.store, context.evidence, run_id=context.run_id, task_id=context.task_id
+        )
+        runtime = AgentRuntime(context.agent_specs, context.agent_adapters, recorder)
+        result = runtime.invoke(
+            AgentInvocationRequest(role=ModelRole.ANALYST, prompt=prompt)
+        )
+        if not result.ok:
+            return self._fail([result.reason], blocked=True)
+
+        quarantine_agent_output(
+            context,
+            raw_output=result.text,
+            summary="Advisory analyst output (context only, never evidence).",
+            recorded_by=self.name,
+        )
+        context.shared["agent_raw_output"] = result.text
+        # Independence: the analyst's run id must differ from the verifier's.
+        context.coding_agent_run_id = result.model_id_used or "analysis-agent"
+        return self._ok(metadata={"used_as_evidence": False, "model_id": result.model_id_used})
+
+
+class StructuredOutputParserHandler(Handler):
+    """Validate the analyst's raw output against a strict schema. Malformed
+    output BLOCKs. The parsed structure is advisory context only (stored
+    quarantined, never ledgered as proof). Skips when no agent output exists."""
+
+    name = "StructuredOutputParserHandler"
+    handler_type = HandlerType.READ_ONLY_COMMAND
+
+    def handle(self, request: ChainRequest, context: ChainContext):
+        raw = context.shared.get("agent_raw_output")
+        if raw is None:
+            return self._skip("no agent output to parse (agent step skipped)")
+        parsed = parse_structured_output(raw)
+        if parsed is None:
+            return self._fail(
+                ["malformed structured model output; cannot validate analyst response"],
+                blocked=True,
+            )
+        context.shared["analysis_agent"] = parsed.model_dump()
+        # Advisory context: stored + hashed, but NOT ledgered as proof.
+        context.write_quarantined(
+            name="structured_agent_output.json",
+            data=parsed.model_dump_json(indent=2),
+            recorded_by=self.name,
+        )
+        return self._ok(metadata={"confidence": parsed.confidence})
+
+
 class AIReadinessScoringHandler(Handler):
     name = "AIReadinessScoringHandler"
     handler_type = HandlerType.READ_ONLY_COMMAND
@@ -198,6 +294,8 @@ HANDLERS = [
     CIInventoryHandler(),
     DependencyInventoryHandler(),
     ReadOnlyComplianceHandler(),
+    AnalysisAgentInvocationHandler(),
+    StructuredOutputParserHandler(),
     AIReadinessScoringHandler(),
     StrategicProgrammingAssessmentHandler(),
     BacklogFindingGeneratorHandler(),

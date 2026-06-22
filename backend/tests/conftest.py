@@ -6,6 +6,8 @@ field and assert that the corresponding hard rule fires.
 
 from __future__ import annotations
 
+import os
+
 import pytest
 
 from app.constants import RunType
@@ -13,6 +15,17 @@ from app.schemas.evidence_ledger import EvidenceLedger, LedgerEntry
 from app.schemas.run_manifest import RunManifest
 from app.schemas.scrum_mapping import ScrumMapping
 from app.schemas.strategic_programming import DesignOption, StrategicProgramming
+
+# Test hermeticity: the sandbox enforces ambient git commit-signing whose signing
+# server intermittently 503s, making `git commit` flake with exit 128. Tests that
+# build throwaway git repos must not depend on that. Inject commit.gpgsign=false
+# (and tag) into every git subprocess via git's env-config mechanism so commits
+# never sign. This affects only the test process environment, never product code.
+os.environ["GIT_CONFIG_COUNT"] = "2"
+os.environ["GIT_CONFIG_KEY_0"] = "commit.gpgsign"
+os.environ["GIT_CONFIG_VALUE_0"] = "false"
+os.environ["GIT_CONFIG_KEY_1"] = "tag.gpgsign"
+os.environ["GIT_CONFIG_VALUE_1"] = "false"
 
 
 def make_manifest(**overrides) -> RunManifest:

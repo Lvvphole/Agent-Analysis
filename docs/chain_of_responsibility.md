@@ -61,20 +61,36 @@ chain as an immutable, ordered tuple of handler names:
 
 | task_type | chain |
 | --- | --- |
-| AI_READINESS_AUDIT | `ai_readiness_audit_chain` (fully implemented, read-only) |
+| AI_READINESS_AUDIT | `ai_readiness_audit_chain` (fully implemented, read-only; runtime spine adds a controlled analyst step + read-only tool runs) |
 | IMPLEMENTATION / REFACTOR / TEST_COVERAGE_EXPANSION | `implementation_chain` (implemented; real git diff capture + allowlisted test runner; live agent invocation + GitHub push deferred) |
-| BUG_FIX | `bug_fix_chain` (registered; execution deferred) |
-| SECURITY_REVIEW | `security_review_chain` (registered; deferred) |
-| DEPENDENCY_UPDATE | `dependency_update_chain` (registered; deferred) |
+| BUG_FIX | `bug_fix_chain` (implemented; FailureReproduction precondition + implementation pipeline) |
+| SECURITY_REVIEW | `security_review_chain` (implemented; secret/auth/input/vuln scans + independent security verifier) |
+| DEPENDENCY_UPDATE | `dependency_update_chain` (implemented; lockfile/risk/license/build handlers) |
 | DOCUMENTATION_UPDATE | `documentation_update_chain` (implemented; pure/read-only doc-gap, repo-relative link check, independent doc verifier; diff required, tests NOT_APPLICABLE) |
-| CI_FAILURE_REPAIR | `ci_failure_repair_chain` (registered; deferred) |
+| CI_FAILURE_REPAIR | `ci_failure_repair_chain` (implemented; CI-log parse/classify, local reproduction, CI-config validation) |
 
-The four remaining deferred chains (BUG_FIX, SECURITY_REVIEW, DEPENDENCY_UPDATE,
-CI_FAILURE_REPAIR) are registered so routing is deterministic and complete;
-executing them BLOCKS on the first unimplemented handler with an explicit
-reason — no faked behavior. Their deferred handlers require side-effecting or
-external integrations (command/build runners, CVE/license feeds, CI-log access)
-that the prior build deferred.
+All registered chains now resolve every handler and route deterministically.
+External-data checks (advisories, licenses, CI logs) act on caller-supplied data
+via the ManualAdapter path and SKIP-with-reason when no feed is provided; no
+behavior is faked, and any missing required evidence BLOCKS explicitly.
+
+## Runtime execution spine
+
+`backend/app/runtime/` turns the planner into an executor. `POST
+/runs/{id}/chain/execute` validates the real filesystem path against a
+**workspace policy** (`runtime/workspace_policy.py`), then runs the registered
+chain via the `ChainExecutor`. The `AI_READINESS_AUDIT` chain adds a controlled,
+**read-only** analyst step: `AnalysisAgentInvocationHandler` runs read-only repo
+**tools** through policy (`app/tools/`, hashed + ledgered output), invokes a
+declared model via the agent runtime (`app/agents/`, built on the LLM layer),
+**quarantines** the raw output (`app/parsing/quarantine.py`), and
+`StructuredOutputParserHandler` schema-validates it (`app/parsing/structured_parser.py`).
+The agent only *informs* analysis — it never decides PASS and never enters the
+evidence ledger as proof; the deterministic handlers remain the sole proof
+source, and the independent `AnalysisVerifierHandler` decides. When no provider
+is configured the agent step SKIPs; a configured-but-unavailable provider, or
+malformed structured output, **BLOCKS** — never a fabricated PASS. Only the
+deterministic `fake`/`manual` adapters ship in this slice (no live provider).
 
 ## How the verifier stays independent
 
@@ -111,7 +127,8 @@ for environments without a working tree.
 
 ## Honestly deferred
 
-Live Claude Code invocation, the Docker sandbox runner, the GitHub push/PR runner
-(branch/commit/push/merge), Temporal, PostgreSQL persistence, the five non-core
-chains' execution, security and license scanners, AST analysis, and the frontend
-remain deferred.
+Live model providers (Anthropic/OpenAI/Gemini/Claude Code/Codex — only
+deterministic `fake`/`manual`/`stub` adapters ship), the Docker sandbox runner,
+the GitHub push/PR runner (branch/commit/push/merge), Temporal, PostgreSQL
+persistence, live agent-driven execution of the non-analysis chains, external
+CVE/license/CI feeds, AST analysis, and the frontend remain deferred.

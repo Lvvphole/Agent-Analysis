@@ -50,7 +50,8 @@ layer** built on top of it — all fully verifiable with `pytest`.
 | JSON Schemas generated from the models | done — `schemas/*.schema.json` |
 | Chain of Responsibility layer (router + executor + handlers, harness stays the authority) | done — `backend/app/chains/`, `backend/app/handlers/`, [`docs/chain_of_responsibility.md`](docs/chain_of_responsibility.md) |
 | Side-effecting git capture + allowlisted command runners (wired into the implementation chain) | done — `backend/app/runners/git_runner.py`, `command_runner.py` |
-| Tests covering every hard rule in Section 19 + the chain layer + runners | done — `backend/tests/` (155) |
+| Runtime execution spine (safe API execution of a registered chain: workspace policy, controlled provider, tool runtime, structured parsing) | done — `backend/app/runtime/`, `backend/app/agents/`, `backend/app/tools/`, `backend/app/parsing/` |
+| Tests covering every hard rule in Section 19 + the chain layer + runners + runtime spine | done — `backend/tests/` (252) |
 
 ## Chain of Responsibility (task routing inside the harness)
 
@@ -71,8 +72,19 @@ each `task_type` through ordered, bounded handlers. Full reference:
   independent verifier); `IMPLEMENTATION` captures a real working-tree diff (git
   runner) and runs real allowlisted tests (command runner), gating the PR behind
   an independent verifier PASS.
-- **API** — `GET /chains`, `GET /chains/{id}`, `POST /runs/{id}/chain`,
-  `GET /runs/{id}/chain/results` (no merge/deploy/complete/bypass/force-pass).
+- **Runtime execution spine** (`backend/app/runtime/`) — `POST /runs/{id}/chain/execute`
+  actually *runs* the registered chain via the executor (not just plans it). It
+  validates the real filesystem path against a **workspace policy**
+  (`runtime/workspace_policy.py`), runs read-only repo **tools** through policy with
+  hashed output (`app/tools/`), invokes a **controlled model provider** built on the
+  LLM layer (`app/agents/` — deterministic `fake`/`manual` adapters; no live
+  provider in this slice), **quarantines** raw output and **schema-validates** the
+  structured output (`app/parsing/`). The agent only *informs* analysis — it never
+  decides PASS and never enters the evidence ledger as proof. A configured-but-
+  unavailable provider → **BLOCKED**, never a fabricated PASS.
+- **API** — `GET /chains`, `GET /chains/{id}`, `POST /runs/{id}/chain` (plan),
+  `POST /runs/{id}/chain/execute` (run), `GET /runs/{id}/chain/results`
+  (no merge/deploy/complete/bypass/force-pass).
 
 ## Deferred to later phases (not yet built)
 
@@ -82,12 +94,18 @@ These are intentionally **not** claimed as done:
   Temporal-ready orchestration for now).
 - PostgreSQL persistence (the API uses an in-memory registry for the MVP;
   `docker-compose.yml` provisions Postgres for the next phase).
-- Docker sandbox runner, git runner, GitHub PR integration (the *policies* and
-  *gates* that govern them exist; the side-effecting runners do not).
-- Live Claude Code invocation, the Docker sandbox runner, and the GitHub push/PR
-  runner. The implementation chain now captures a **real** working-tree diff (git
-  runner) and runs **real** allowlisted tests (command runner); the ManualAdapter
-  metadata path remains for environments without a working tree.
+- Docker sandbox runner and GitHub push/PR integration (the *policies* and
+  *gates* that govern them exist; those side-effecting runners do not). The git
+  runner (read-only working-tree capture) and allowlisted command runner *are*
+  built.
+- **Live model providers.** The runtime spine invokes models through a controlled
+  provider abstraction, but ships only deterministic `fake`/`manual` adapters and
+  the existing `stub` LLM adapter — **no** live Anthropic/OpenAI/Gemini/Claude
+  Code/Codex calls. A real provider requires keys, network policy, rate limits,
+  invocation recording, and tests before it is wired; until then a
+  configured-but-unavailable provider returns **BLOCKED**.
+- Live agent-driven `IMPLEMENTATION` execution beyond the read-only
+  `AI_READINESS_AUDIT` runtime slice; the other chains remain plan-and-test only.
 - The Next.js frontend control plane (Phase 6). See `frontend/README.md`.
 
 ## Hard gates (all enforced and unit-tested)
@@ -113,7 +131,7 @@ Notable invariants proven by the suite:
 ```bash
 cd backend
 python -m pip install -r requirements-dev.txt
-python -m pytest -q                   # 155 tests
+python -m pytest -q                   # 252 tests
 python scripts/generate_schemas.py    # regenerate ../schemas/*.schema.json
 uvicorn app.main:app --reload         # control API on http://127.0.0.1:8000
 ```
@@ -141,13 +159,18 @@ agent-analysis/
       gates/                # pure-function gates (Section 13)
       storage/              # hashing, artifact store, ledger/checkpoint writers
       runners/              # sandbox policy + git capture + command runner
+      llm/                  # controlled LLM layer (adapter, router, recorder, stub)
       workflows/            # read-only analysis loop (Section 17.1)
       chains/               # CoR registry, executor, context (task routing)
       handlers/             # bounded handlers + authority matrix
+      runtime/              # execution spine: workspace policy + runtime executor
+      agents/               # controlled provider runtime (fake/manual adapters)
+      tools/                # read-only tool registry + policy + executor
+      parsing/              # structured output parser + agent-output quarantine
       api/                  # FastAPI routers (safe endpoints only)
       main.py               # FastAPI app
     scripts/generate_schemas.py
-    tests/                  # 155 tests
+    tests/                  # 252 tests
     pyproject.toml
   schemas/                  # generated JSON Schemas (Section 10)
   docs/                     # chain_of_responsibility.md
