@@ -292,7 +292,7 @@ def test_execute_records_attempt_with_base_commit(git_repo, tmp_path, restore_se
     assert att["attempt_id"] == "run-att-a1"
     assert att["attempt_number"] == 1
     assert att["base_commit"] and len(att["base_commit"]) == 40  # real git SHA
-    assert att["workspace_id"] == str(git_repo.resolve())
+    assert att["workspace_id"] == "workspace-run-att-a1"  # opaque, not a host path
     assert att["final_status"] == resp.json()["final_status"]
     # Artifacts are scoped under {run_id}/{attempt_id}/.
     assert (tmp_path / "art" / "run-att" / "run-att-a1").is_dir()
@@ -344,7 +344,22 @@ def test_production_mode_allocates_server_workspace(temp_repo, tmp_path, restore
     assert resp.status_code == 200, resp.text
     attempts = client.get(f"/runs/{run_id}/attempts").json()
     assert len(attempts) == 1
-    assert attempts[0]["workspace_id"] == str(temp_repo.resolve())
+    assert attempts[0]["workspace_id"] == "workspace-run-srv-a1"  # opaque, not a host path
+
+
+def test_attempts_endpoint_does_not_leak_workspace_root(git_repo, tmp_path, restore_settings):
+    """The audit endpoint must not expose the host filesystem path it ran against."""
+    configure(workspace_root=git_repo, artifacts_root=tmp_path / "art", provider_mode="fake")
+    run_id = _create_run("run-leak")
+    resp = client.post(f"/runs/{run_id}/chain/execute", json=_execute_body("run-leak", git_repo))
+    assert resp.status_code == 200, resp.text
+
+    raw = client.get(f"/runs/{run_id}/attempts")
+    # The resolved workspace_root must appear nowhere in the serialized response.
+    assert str(get_settings().workspace_root.resolve()) not in raw.text
+    workspace_id = raw.json()[0]["workspace_id"]
+    assert workspace_id.startswith("workspace-")
+    assert not os.path.isabs(workspace_id)
 
 
 def test_attempts_endpoint_unknown_run_404():

@@ -71,7 +71,7 @@ def _make_record(manifest: RunManifest, run_id: str = "run-1") -> RunRecord:
                 attempt_id=f"{run_id}-a1",
                 attempt_number=1,
                 base_commit="0" * 40,
-                workspace_id="/ws/run",
+                workspace_id="workspace-run-1-a1",
                 final_status="PASS",
                 created_at="2026-06-23T00:00:00+00:00",
             )
@@ -223,7 +223,11 @@ def test_save_projects_run_attempts(manifest):
                 "FROM run_attempts WHERE run_id = 'run-1'"
             )
             rows = cur.fetchall()
-    assert rows == [(1, "0" * 40, "/ws/run", "PASS")]
+    assert rows == [(1, "0" * 40, "workspace-run-1-a1", "PASS")]
+    # The persisted workspace_id is an opaque identifier, never a host path.
+    stored_workspace_id = rows[0][2]
+    assert not stored_workspace_id.startswith(os.sep)
+    assert not os.path.isabs(stored_workspace_id)
 
 
 @pytest.mark.skipif(not _PG_DSN, reason="AGENT_ANALYSIS_TEST_DATABASE_URL not set")

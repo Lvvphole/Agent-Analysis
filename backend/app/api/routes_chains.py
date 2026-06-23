@@ -208,12 +208,15 @@ def execute_chain(run_id: str, body: ChainExecuteRequest) -> ChainExecutionResul
     runtime = build_runtime_executor(settings)
     allocator = WorkspaceAllocator(runtime.workspace_policy)
     try:
-        # Server-owned per-attempt allocation: records base_commit + workspace_id
-        # and mints the attempt id before any execution (Epic 3).
-        attempt = allocator.allocate(record, source_path)
+        # Server-owned per-attempt allocation: records base_commit + an opaque
+        # workspace_id and mints the attempt id before any execution (Epic 3). The
+        # validated host path stays internal on allocation.execution_path; the
+        # attempt's workspace_id is opaque so the audit surface never leaks it.
+        allocation = allocator.allocate(record, source_path)
+        attempt = allocation.attempt
         result = runtime.execute(
             request,
-            execution_path=attempt.workspace_id,
+            execution_path=allocation.execution_path,
             attempt_id=attempt.attempt_id,
         )
         attempt.final_status = result.final_status

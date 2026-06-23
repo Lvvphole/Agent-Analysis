@@ -23,7 +23,7 @@ snapshot with no new `RunRepository` port method:
 | `attempt_id` | Server-owned, deterministic: `{run_id}-a{attempt_number}`. |
 | `attempt_number` | 1-based; the next attempt is `len(record.attempts) + 1`. |
 | `base_commit` | `git rev-parse HEAD` of the workspace, or `null` when it is not a git repo. |
-| `workspace_id` | The resolved workspace path the attempt ran against. |
+| `workspace_id` | Opaque, server-owned identifier: `workspace-{run_id}-a{attempt_number}`. Never a host filesystem path — the resolved path stays internal so the audit surface cannot leak server layout. |
 | `final_status` | Echo of the attempt's chain result (`PASS`/`FAIL`/`BLOCKED`). Audit only. |
 | `created_at` | UTC ISO timestamp of allocation. |
 
@@ -38,10 +38,16 @@ snapshot with no new `RunRepository` port method:
    no attempt).
 2. `base_commit = GitRunner(resolved).head_commit()` — reuses the read-only,
    capture-only git runner.
-3. `workspace_id = str(resolved)`; `attempt_id = f"{run_id}-a{attempt_number}"`.
+3. `attempt_id = f"{run_id}-a{attempt_number}"`; `workspace_id =
+   f"workspace-{run_id}-a{attempt_number}"` (opaque — **not** the resolved path).
 
-The endpoint then runs the chain with that attempt's workspace and `attempt_id`,
+`allocate` returns a `WorkspaceAllocation(attempt, execution_path)`: the `attempt`
+carries the opaque `workspace_id` (persisted and returned by the API), while the
+validated `execution_path` (the resolved host path) stays in-process. The endpoint
+runs the chain against `allocation.execution_path` with that attempt's `attempt_id`,
 sets `final_status` from the result, appends the attempt to the record, and saves.
+Because only the opaque id is ever persisted/returned, `GET /runs/{id}/attempts` and
+the `run_attempts.workspace_id` column never expose the host filesystem layout.
 
 ## Production mode
 
@@ -87,7 +93,8 @@ the object-backed artifact store (Epic 6).
 
 - `backend/tests/test_workspace_allocator.py` — deterministic `attempt_id`,
   `attempt_number` increment, `base_commit` from a real git repo (and `null`
-  without one), `workspace_id`, bad-path rejection.
+  without one), opaque `workspace_id` (asserts it is not a host path), bad-path
+  rejection.
 - `backend/tests/test_runtime_execution_spine.py` — attempt recorded with a real
   `base_commit`; repeated execute increments the attempt number; production mode
   rejects a caller path (422) and allocates the server workspace without one;
