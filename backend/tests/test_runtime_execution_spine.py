@@ -231,6 +231,52 @@ def test_api_execute_unknown_run_404(temp_repo):
     assert client.post("/runs/nope/chain/execute", json=body).status_code == 404
 
 
+def test_execute_rejects_run_id_mismatch(temp_repo, tmp_path, restore_settings):
+    # body.request.run_id diverges from the URL run_id -> 422, no execution.
+    configure(workspace_root=tmp_path, artifacts_root=tmp_path / "art", provider_mode="fake")
+    run_id = _create_run("run-url")
+    body = _execute_body("run-url", temp_repo)
+    body["request"]["run_id"] = "run-evil"  # divergent identity
+    resp = client.post(f"/runs/{run_id}/chain/execute", json=body)
+    assert resp.status_code == 422, resp.text
+    assert "identity_mismatch" in resp.json()["detail"]
+    # No artifacts written under the divergent body run id.
+    assert not (tmp_path / "art" / "run-evil").exists()
+
+
+def test_execute_rejects_task_id_mismatch(temp_repo, tmp_path, restore_settings):
+    configure(workspace_root=tmp_path, artifacts_root=tmp_path / "art", provider_mode="fake")
+    run_id = _create_run("run-tid")  # manifest task_id defaults to "task-1"
+    body = _execute_body("run-tid", temp_repo)
+    body["request"]["task_id"] = "task-OTHER"  # diverges from registered task_id
+    resp = client.post(f"/runs/{run_id}/chain/execute", json=body)
+    assert resp.status_code == 422, resp.text
+    assert "identity_mismatch" in resp.json()["detail"]
+
+
+def test_execute_empty_run_id_is_bound_to_url(temp_repo, tmp_path, restore_settings):
+    # Empty body run_id is adopted from the URL; execution proceeds and the
+    # result/artifacts use the URL run id.
+    configure(workspace_root=tmp_path, artifacts_root=tmp_path / "art", provider_mode="fake")
+    run_id = _create_run("run-bind")
+    body = _execute_body("run-bind", temp_repo)
+    body["request"]["run_id"] = ""  # server should adopt the URL run_id
+    resp = client.post(f"/runs/{run_id}/chain/execute", json=body)
+    assert resp.status_code == 200, resp.text
+    assert resp.json()["final_status"] == "PASS"
+    assert resp.json()["run_id"] == "run-bind"
+    assert (tmp_path / "art" / "run-bind").exists()
+
+
+def test_execute_matching_run_id_executes(temp_repo, tmp_path, restore_settings):
+    configure(workspace_root=tmp_path, artifacts_root=tmp_path / "art", provider_mode="fake")
+    run_id = _create_run("run-match")
+    resp = client.post(f"/runs/{run_id}/chain/execute", json=_execute_body("run-match", temp_repo))
+    assert resp.status_code == 200, resp.text
+    assert resp.json()["final_status"] == "PASS"
+    assert resp.json()["run_id"] == "run-match"
+
+
 def test_no_forbidden_endpoints_present():
     paths = list(client.get("/openapi.json").json()["paths"].keys())
     assert "/runs/{run_id}/chain/execute" in paths

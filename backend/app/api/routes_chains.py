@@ -128,6 +128,52 @@ def execute_chain(run_id: str, body: ChainExecuteRequest) -> ChainExecutionResul
         raise HTTPException(status_code=404, detail="run not found")
 
     request = body.request
+
+    # Server-owned identity: the URL run_id is authoritative and the request
+    # identity must bind to the registered run record before any execution. A
+    # body that names a different run/task can never execute.
+    if request.run_id and request.run_id != run_id:
+        raise HTTPException(
+            status_code=422,
+            detail={
+                "identity_mismatch": (
+                    f"body.request.run_id '{request.run_id}' != URL run_id '{run_id}'"
+                )
+            },
+        )
+    manifest_run_id = record.manifest.run_id
+    if manifest_run_id and manifest_run_id != run_id:
+        raise HTTPException(
+            status_code=422,
+            detail={
+                "identity_mismatch": (
+                    f"registered manifest run_id '{manifest_run_id}' != URL run_id '{run_id}'"
+                )
+            },
+        )
+    manifest_task_id = record.manifest.task_id
+    if manifest_task_id and request.task_id and request.task_id != manifest_task_id:
+        raise HTTPException(
+            status_code=422,
+            detail={
+                "identity_mismatch": (
+                    f"body.request.task_id '{request.task_id}' != "
+                    f"registered task_id '{manifest_task_id}'"
+                )
+            },
+        )
+
+    # Bind to server-owned identity: adopt the URL run_id (and the registered
+    # task_id when the body omitted it) so artifacts/evidence can never be
+    # written under a divergent identity.
+    updates = {}
+    if request.run_id != run_id:
+        updates["run_id"] = run_id
+    if not request.task_id and manifest_task_id:
+        updates["task_id"] = manifest_task_id
+    if updates:
+        request = request.model_copy(update=updates)
+
     violations = request.canonical_violations()
     if violations:
         raise HTTPException(
