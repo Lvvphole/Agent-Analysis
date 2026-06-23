@@ -7,9 +7,21 @@ endpoints do not exist by construction.
 
 from __future__ import annotations
 
+from contextlib import asynccontextmanager
+
 from fastapi import FastAPI
 
 from app.api import routes_chains, routes_models, routes_runs
+from app.api.store import configure_from_env
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    # Bind the durable run store when AGENT_ANALYSIS_DATABASE_URL is set;
+    # otherwise the in-memory adapter, so dev and tests need no database.
+    configure_from_env()
+    yield
+
 
 app = FastAPI(
     title="Agent-Analysis Control API",
@@ -18,6 +30,7 @@ app = FastAPI(
         "No auto-merge. No auto-deploy. No self-certification."
     ),
     version="0.1.0",
+    lifespan=lifespan,
 )
 
 app.include_router(routes_runs.router)

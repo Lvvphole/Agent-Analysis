@@ -19,7 +19,7 @@ from app.gates.evidence_gate import evidence_gate
 from app.gates.manifest_gate import manifest_gate
 from app.gates.no_self_certification_gate import no_self_certification_gate
 from app.gates.pr_gate import pr_gate
-from app.api.store import RunRecord, registry
+from app.api.store import RunRecord, get_repository
 from app.schemas.evidence_ledger import EvidenceLedger
 from app.schemas.gate_result import GateResult
 from app.schemas.run_manifest import RunManifest
@@ -50,18 +50,18 @@ def create_run(manifest: RunManifest) -> CreateRunResponse:
 
     run_id = manifest.run_id or f"run-{uuid.uuid4().hex[:12]}"
     record = RunRecord(run_id=run_id, manifest=manifest, state="INTAKE")
-    registry.add(record)
+    get_repository().add(record)
     return CreateRunResponse(run_id=run_id, state=record.state, manifest_gate=gate)
 
 
 @router.get("")
 def list_runs() -> list[dict]:
-    return [{"run_id": r.run_id, "state": r.state} for r in registry.list()]
+    return [{"run_id": r.run_id, "state": r.state} for r in get_repository().list()]
 
 
 @router.get("/{run_id}")
 def get_run(run_id: str) -> dict:
-    record = registry.get(run_id)
+    record = get_repository().get(run_id)
     if record is None:
         raise HTTPException(status_code=404, detail="run not found")
     return {
@@ -76,7 +76,7 @@ def get_run(run_id: str) -> dict:
 
 @router.get("/{run_id}/state")
 def get_run_state(run_id: str) -> dict:
-    record = registry.get(run_id)
+    record = get_repository().get(run_id)
     if record is None:
         raise HTTPException(status_code=404, detail="run not found")
     return {"run_id": record.run_id, "state": record.state}
@@ -94,7 +94,8 @@ def verify_run(run_id: str, body: VerifyRequest) -> dict:
     Re-runs the no-self-certification and evidence gates server-side: the API
     will not let a self-certified or unhashed-evidence report stand as PASS.
     """
-    record = registry.get(run_id)
+    repo = get_repository()
+    record = repo.get(run_id)
     if record is None:
         raise HTTPException(status_code=404, detail="run not found")
 
@@ -121,6 +122,7 @@ def verify_run(run_id: str, body: VerifyRequest) -> dict:
 
     record.verifier_report = report.model_copy(update={"decision": effective})
     record.state = "VERIFY"
+    repo.save(record)
     return {
         "run_id": record.run_id,
         "reported_decision": report.decision,
@@ -141,7 +143,8 @@ def create_or_update_pr(run_id: str, body: PrRequest) -> dict:
 
     There is no merge and no deploy here. The PR gate re-asserts that.
     """
-    record = registry.get(run_id)
+    repo = get_repository()
+    record = repo.get(run_id)
     if record is None:
         raise HTTPException(status_code=404, detail="run not found")
     decision = record.verifier_report.decision if record.verifier_report else Decision.PENDING
@@ -161,6 +164,7 @@ def create_or_update_pr(run_id: str, body: PrRequest) -> dict:
         raise HTTPException(status_code=422, detail=gate.model_dump())
 
     record.state = "PR_GATE"
+    repo.save(record)
     return {
         "run_id": record.run_id,
         "pr_url": body.pr_url,

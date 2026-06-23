@@ -11,7 +11,7 @@ from __future__ import annotations
 
 from fastapi import APIRouter, HTTPException
 
-from app.api.store import registry
+from app.api.store import get_repository
 from app.chains.registry import CHAIN_DEFINITIONS, resolve_chain
 from app.constants import Decision
 from app.runtime.execution_request import ChainExecuteRequest
@@ -82,7 +82,8 @@ def plan_chain(run_id: str, request: ChainRequest) -> dict:
     Unknown task types are BLOCKED (no chain). An agent cannot reorder the plan;
     it is returned verbatim from the registry.
     """
-    record = registry.get(run_id)
+    repo = get_repository()
+    record = repo.get(run_id)
     if record is None:
         raise HTTPException(status_code=404, detail="run not found")
 
@@ -97,6 +98,7 @@ def plan_chain(run_id: str, request: ChainRequest) -> dict:
             "envelope_gate": envelope.model_dump(),
         }
         record.chain_result = result
+        repo.save(record)
         return result
 
     result = {
@@ -111,6 +113,7 @@ def plan_chain(run_id: str, request: ChainRequest) -> dict:
         "auto_deploy": False,
     }
     record.chain_result = result
+    repo.save(record)
     return result
 
 
@@ -123,7 +126,8 @@ def execute_chain(run_id: str, body: ChainExecuteRequest) -> ChainExecutionResul
     execution path against the workspace policy, and returns a real
     ``ChainExecutionResult``. It never merges, deploys, or creates a PR.
     """
-    record = registry.get(run_id)
+    repo = get_repository()
+    record = repo.get(run_id)
     if record is None:
         raise HTTPException(status_code=404, detail="run not found")
 
@@ -190,12 +194,13 @@ def execute_chain(run_id: str, body: ChainExecuteRequest) -> ChainExecutionResul
 
     record.chain_execution_result = result
     record.state = "EXECUTE_CHAIN"
+    repo.save(record)
     return result
 
 
 @router.get("/runs/{run_id}/chain/results")
 def get_chain_results(run_id: str):
-    record = registry.get(run_id)
+    record = get_repository().get(run_id)
     if record is None:
         raise HTTPException(status_code=404, detail="run not found")
     if record.chain_execution_result is not None:

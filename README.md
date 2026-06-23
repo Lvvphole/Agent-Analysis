@@ -51,7 +51,8 @@ layer** built on top of it — all fully verifiable with `pytest`.
 | Chain of Responsibility layer (router + executor + handlers, harness stays the authority) | done — `backend/app/chains/`, `backend/app/handlers/`, [`docs/chain_of_responsibility.md`](docs/chain_of_responsibility.md) |
 | Side-effecting git capture + allowlisted command runners (wired into the implementation chain) | done — `backend/app/runners/git_runner.py`, `command_runner.py` |
 | Runtime execution spine (safe API execution of a registered chain: workspace policy, controlled provider, tool runtime, structured parsing) | done — `backend/app/runtime/`, `backend/app/agents/`, `backend/app/tools/`, `backend/app/parsing/` |
-| Tests covering every hard rule in Section 19 + the chain layer + runners + runtime spine | done — `backend/tests/` (256) |
+| Durable run persistence behind a port (in-memory default + PostgreSQL adapter, durable audit schema) | done — `backend/app/storage/run_repository.py`, `postgres_run_repository.py`, [`docs/persistence.md`](docs/persistence.md) |
+| Tests covering every hard rule in Section 19 + the chain layer + runners + runtime spine + persistence | done — `backend/tests/` (262; +6 Postgres-gated) |
 
 ## Chain of Responsibility (task routing inside the harness)
 
@@ -95,8 +96,11 @@ These are intentionally **not** claimed as done:
 
 - Temporal workflow engine integration (the workflows are written as plain,
   Temporal-ready orchestration for now).
-- PostgreSQL persistence (the API uses an in-memory registry for the MVP;
-  `docker-compose.yml` provisions Postgres for the next phase).
+- Async worker execution, tenant isolation/auth, and object-backed artifact
+  storage (Epics 4–6). Run persistence itself is **done**: runs live behind a
+  `RunRepository` port with an in-memory default and a durable PostgreSQL adapter
+  (`AGENT_ANALYSIS_DATABASE_URL`); see [`docs/persistence.md`](docs/persistence.md).
+  The `runs`/`evidence_artifacts` schema reserves `tenant_id` for Epic 5.
 - Docker sandbox runner and GitHub push/PR integration (the *policies* and
   *gates* that govern them exist; those side-effecting runners do not). The git
   runner (read-only working-tree capture) and allowlisted command runner *are*
@@ -136,7 +140,7 @@ Notable invariants proven by the suite:
 ```bash
 cd backend
 python -m pip install -r requirements-dev.txt
-python -m pytest -q                   # 256 tests
+python -m pytest -q                   # 262 tests (+6 Postgres-gated, skipped without a DB)
 python scripts/generate_schemas.py    # regenerate ../schemas/*.schema.json
 uvicorn app.main:app --reload         # control API on http://127.0.0.1:8000
 ```
@@ -180,7 +184,8 @@ agent-analysis/
       retry_budget.py       # bounded autonomy (Section 6.9)
       schemas/              # Pydantic contracts (Section 9)
       gates/                # pure-function gates (Section 13)
-      storage/              # hashing, artifact store, ledger/checkpoint writers
+      storage/              # hashing, artifact store, ledger/checkpoint writers,
+                            #   run repository port + in-memory & Postgres adapters, sql/
       runners/              # sandbox policy + git capture + command runner
       llm/                  # controlled LLM layer (adapter, router, recorder, stub)
       workflows/            # read-only analysis loop (Section 17.1)
@@ -193,10 +198,10 @@ agent-analysis/
       api/                  # FastAPI routers (safe endpoints only)
       main.py               # FastAPI app
     scripts/generate_schemas.py
-    tests/                  # 256 tests
+    tests/                  # 262 tests (+6 Postgres-gated)
     pyproject.toml
   schemas/                  # generated JSON Schemas (Section 10)
-  docs/                     # chain_of_responsibility.md, github_enforcement.md
+  docs/                     # chain_of_responsibility.md, github_enforcement.md, persistence.md
   artifacts/                # runtime evidence (git-ignored except .gitkeep)
   frontend/                 # Phase 6 control plane (planned — see README)
   docker-compose.yml

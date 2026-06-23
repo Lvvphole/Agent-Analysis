@@ -1,0 +1,6 @@
+# Optional dependency for the durable Postgres run store (Epic 2).
+# The core install and the test suite do not need this; install it only to run
+# the API against PostgreSQL (AGENT_ANALYSIS_DATABASE_URL set) or to exercise
+# the Postgres repository contract tests.
+-r requirements.txt
+psycopg[binary]>=3.1
