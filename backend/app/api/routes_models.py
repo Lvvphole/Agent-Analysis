@@ -9,7 +9,7 @@ from __future__ import annotations
 
 from fastapi import APIRouter, HTTPException
 
-from app.api.store import registry
+from app.api.store import get_repository
 from app.llm.catalog import MODEL_CATALOG
 from app.schemas.model_policy import ModelRole
 
@@ -34,7 +34,7 @@ def models_catalog() -> list[dict]:
 
 @router.get("/runs/{run_id}/llm-invocations")
 def run_llm_invocations(run_id: str) -> list[dict]:
-    record = registry.get(run_id)
+    record = get_repository().get(run_id)
     if record is None:
         raise HTTPException(status_code=404, detail="run not found")
     return list(record.llm_invocations)
