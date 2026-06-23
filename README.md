@@ -51,7 +51,7 @@ layer** built on top of it — all fully verifiable with `pytest`.
 | Chain of Responsibility layer (router + executor + handlers, harness stays the authority) | done — `backend/app/chains/`, `backend/app/handlers/`, [`docs/chain_of_responsibility.md`](docs/chain_of_responsibility.md) |
 | Side-effecting git capture + allowlisted command runners (wired into the implementation chain) | done — `backend/app/runners/git_runner.py`, `command_runner.py` |
 | Runtime execution spine (safe API execution of a registered chain: workspace policy, controlled provider, tool runtime, structured parsing) | done — `backend/app/runtime/`, `backend/app/agents/`, `backend/app/tools/`, `backend/app/parsing/` |
-| Tests covering every hard rule in Section 19 + the chain layer + runners + runtime spine | done — `backend/tests/` (252) |
+| Tests covering every hard rule in Section 19 + the chain layer + runners + runtime spine | done — `backend/tests/` (256) |
 
 ## Chain of Responsibility (task routing inside the harness)
 
@@ -74,6 +74,9 @@ each `task_type` through ordered, bounded handlers. Full reference:
   an independent verifier PASS.
 - **Runtime execution spine** (`backend/app/runtime/`) — `POST /runs/{id}/chain/execute`
   actually *runs* the registered chain via the executor (not just plans it). It
+  binds the request to **server-owned identity** (the URL `run_id` is authoritative:
+  a body `run_id`/`task_id` that diverges from the URL or the registered manifest is
+  rejected **422** and never executes; an empty `run_id` is adopted from the URL),
   validates the real filesystem path against a **workspace policy**
   (`runtime/workspace_policy.py`), runs read-only repo **tools** through policy with
   hashed output (`app/tools/`), invokes a **controlled model provider** built on the
@@ -124,6 +127,8 @@ Notable invariants proven by the suite:
 - Read-only mode requires **no** `diff.patch`; implementation mode **requires**
   it. Read-only mode never modifies the repo.
 - Incorrect canonical local path or GitHub repo URL -> **FAIL**.
+- Execute request whose body `run_id`/`task_id` diverges from the URL/registered
+  identity -> **422**, chain never executes (no artifacts under a divergent id).
 - Retry budget exhaustion -> `BLOCKED`.
 
 ## Running it
@@ -131,7 +136,7 @@ Notable invariants proven by the suite:
 ```bash
 cd backend
 python -m pip install -r requirements-dev.txt
-python -m pytest -q                   # 252 tests
+python -m pytest -q                   # 256 tests
 python scripts/generate_schemas.py    # regenerate ../schemas/*.schema.json
 uvicorn app.main:app --reload         # control API on http://127.0.0.1:8000
 ```
@@ -170,7 +175,7 @@ agent-analysis/
       api/                  # FastAPI routers (safe endpoints only)
       main.py               # FastAPI app
     scripts/generate_schemas.py
-    tests/                  # 252 tests
+    tests/                  # 256 tests
     pyproject.toml
   schemas/                  # generated JSON Schemas (Section 10)
   docs/                     # chain_of_responsibility.md
