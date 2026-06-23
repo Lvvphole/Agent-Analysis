@@ -198,3 +198,42 @@ def test_save_projects_audit_rows(manifest):
     assert handlers == 1
     assert gates == 1
     assert decision == "PASS"
+
+
+@pytest.mark.skipif(not _PG_DSN, reason="AGENT_ANALYSIS_TEST_DATABASE_URL not set")
+@pytest.mark.parametrize("late_decision", [Decision.FAIL, Decision.BLOCKED])
+def test_verifier_report_overrides_chain_final_status(manifest, late_decision):
+    """A later verifier report is the single source of truth for both columns.
+
+    A run whose chain_execution_result said final_status=PASS, once saved with a
+    verifier_report.decision of FAIL/BLOCKED, must persist runs.final_status and
+    runs.verifier_decision that agree with the report — never PASS/FAIL skew.
+    """
+    repo = _pg_repo()
+    record = RunRecord(
+        run_id="run-1",
+        manifest=manifest,
+        state="EXECUTE_CHAIN",
+        chain_execution_result=_make_result("run-1"),  # final_status=PASS
+    )
+    repo.add(record)
+
+    record.state = "VERIFY"
+    record.verifier_report = VerifierReport(
+        task_id="task-1",
+        run_id="run-1",
+        verifier_id="verifier-1",
+        verifier_run_id="vr-1",
+        coding_agent_run_id="car-1",
+        decision=late_decision,
+    )
+    repo.save(record)
+
+    with repo._connect() as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                "SELECT final_status, verifier_decision FROM runs WHERE run_id = 'run-1'"
+            )
+            final_status, verifier_decision = cur.fetchone()
+    assert final_status == late_decision.value
+    assert verifier_decision == late_decision.value

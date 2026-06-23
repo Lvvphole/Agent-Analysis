@@ -65,12 +65,20 @@ class PostgresRunRepository(RunRepository):
         Jsonb = self._Jsonb
         snapshot = record_to_snapshot(record)
         result = record.chain_execution_result
-        final_status = result.final_status if result is not None else None
-        verifier_decision = (
-            record.verifier_report.decision.value
-            if record.verifier_report is not None
-            else (result.verifier_decision.value if result is not None else None)
-        )
+        # Derive both columns from a single source of truth so they can never
+        # disagree (e.g. a later POST /verify must not leave final_status=PASS
+        # next to verifier_decision=FAIL). The verifier report, when present, is
+        # that source; otherwise fall back to the chain execution result.
+        if record.verifier_report is not None:
+            decision = record.verifier_report.decision.value
+            final_status = decision
+            verifier_decision = decision
+        elif result is not None:
+            final_status = result.final_status
+            verifier_decision = result.verifier_decision.value
+        else:
+            final_status = None
+            verifier_decision = None
         with self._connect() as conn:
             with conn.cursor() as cur:
                 cur.execute(
