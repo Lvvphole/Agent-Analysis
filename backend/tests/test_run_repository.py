@@ -23,7 +23,7 @@ from app.schemas.chain import (
 from app.schemas.gate_result import GateResult
 from app.schemas.run_manifest import RunManifest
 from app.schemas.verifier_report import VerifierReport
-from app.storage.run_records import RunRecord
+from app.storage.run_records import RunAttempt, RunRecord
 from app.storage.run_repository import InMemoryRunRepository
 from app.storage.run_serialization import record_from_snapshot, record_to_snapshot
 
@@ -66,6 +66,16 @@ def _make_record(manifest: RunManifest, run_id: str = "run-1") -> RunRecord:
         ),
         chain_execution_result=_make_result(run_id),
         llm_invocations=[{"role": "ANALYST", "hash": "abc"}],
+        attempts=[
+            RunAttempt(
+                attempt_id=f"{run_id}-a1",
+                attempt_number=1,
+                base_commit="0" * 40,
+                workspace_id="/ws/run",
+                final_status="PASS",
+                created_at="2026-06-23T00:00:00+00:00",
+            )
+        ],
     )
 
 
@@ -77,6 +87,7 @@ def _assert_same(a: RunRecord, b: RunRecord) -> None:
     assert a.chain_execution_result == b.chain_execution_result
     assert a.llm_invocations == b.llm_invocations
     assert a.tenant_id == b.tenant_id
+    assert a.attempts == b.attempts
 
 
 # --- serialization (no database) --------------------------------------------
@@ -198,6 +209,21 @@ def test_save_projects_audit_rows(manifest):
     assert handlers == 1
     assert gates == 1
     assert decision == "PASS"
+
+
+@pytest.mark.skipif(not _PG_DSN, reason="AGENT_ANALYSIS_TEST_DATABASE_URL not set")
+def test_save_projects_run_attempts(manifest):
+    """Embedded attempts project into the queryable run_attempts table (Epic 3)."""
+    repo = _pg_repo()
+    repo.add(_make_record(manifest))
+    with repo._connect() as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                "SELECT attempt_number, base_commit, workspace_id, final_status "
+                "FROM run_attempts WHERE run_id = 'run-1'"
+            )
+            rows = cur.fetchall()
+    assert rows == [(1, "0" * 40, "/ws/run", "PASS")]
 
 
 @pytest.mark.skipif(not _PG_DSN, reason="AGENT_ANALYSIS_TEST_DATABASE_URL not set")

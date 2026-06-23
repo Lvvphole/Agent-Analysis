@@ -52,7 +52,8 @@ layer** built on top of it — all fully verifiable with `pytest`.
 | Side-effecting git capture + allowlisted command runners (wired into the implementation chain) | done — `backend/app/runners/git_runner.py`, `command_runner.py` |
 | Runtime execution spine (safe API execution of a registered chain: workspace policy, controlled provider, tool runtime, structured parsing) | done — `backend/app/runtime/`, `backend/app/agents/`, `backend/app/tools/`, `backend/app/parsing/` |
 | Durable run persistence behind a port (in-memory default + PostgreSQL adapter, durable audit schema) | done — `backend/app/storage/run_repository.py`, `postgres_run_repository.py`, [`docs/persistence.md`](docs/persistence.md) |
-| Tests covering every hard rule in Section 19 + the chain layer + runners + runtime spine + persistence | done — `backend/tests/` (262; +6 Postgres-gated) |
+| Per-attempt workspace isolation (server-owned attempt allocation, `base_commit` + `workspace_id` per attempt, per-attempt evidence scoping, production-mode rejection of caller paths) | done — `backend/app/runtime/workspace_allocator.py`, [`docs/workspace_isolation.md`](docs/workspace_isolation.md) |
+| Tests covering every hard rule in Section 19 + the chain layer + runners + runtime spine + persistence + per-attempt isolation | done — `backend/tests/` (271; +9 Postgres-gated) |
 
 ## Chain of Responsibility (task routing inside the harness)
 
@@ -86,9 +87,17 @@ each `task_type` through ordered, bounded handlers. Full reference:
   structured output (`app/parsing/`). The agent only *informs* analysis — it never
   decides PASS and never enters the evidence ledger as proof. A configured-but-
   unavailable provider → **BLOCKED**, never a fabricated PASS.
+- **Per-attempt isolation** (`backend/app/runtime/workspace_allocator.py`) — every
+  `execute` is a **server-owned attempt**: the server mints the `attempt_id`, captures
+  the `base_commit` (real `git rev-parse HEAD`) and `workspace_id` it ran against, and
+  scopes that attempt's evidence to `artifacts/{run_id}/{attempt_id}/`. A retry mints
+  the next attempt. In **production mode** a caller-supplied `execution_path` is refused
+  **422** (the server owns workspace allocation); dev keeps accepting it after the
+  workspace policy validates it. Attempts persist into the `run_attempts` table.
+  See [`docs/workspace_isolation.md`](docs/workspace_isolation.md).
 - **API** — `GET /chains`, `GET /chains/{id}`, `POST /runs/{id}/chain` (plan),
-  `POST /runs/{id}/chain/execute` (run), `GET /runs/{id}/chain/results`
-  (no merge/deploy/complete/bypass/force-pass).
+  `POST /runs/{id}/chain/execute` (run), `GET /runs/{id}/chain/results`,
+  `GET /runs/{id}/attempts` (no merge/deploy/complete/bypass/force-pass).
 
 ## Deferred to later phases (not yet built)
 

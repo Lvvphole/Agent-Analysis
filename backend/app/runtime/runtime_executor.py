@@ -46,6 +46,9 @@ class RuntimeSettings:
     workspace_root: Path = _REPO_ROOT
     artifacts_root: Path = Path(tempfile.gettempdir()) / "agent_analysis_artifacts"
     provider_mode: str = "fake"  # fake | none
+    # When True the server owns workspace allocation and a caller-supplied
+    # execution_path is refused (Epic 3). Default False keeps dev/test behavior.
+    production_mode: bool = False
 
     def agent_config(self) -> AgentRuntimeConfig:
         if self.provider_mode == "fake":
@@ -77,10 +80,14 @@ class RuntimeExecutor:
     executor: ChainExecutor = field(default_factory=ChainExecutor)
 
     def execute(
-        self, request: ChainRequest, *, execution_path: str | Path | None
+        self,
+        request: ChainRequest,
+        *,
+        execution_path: str | Path | None,
+        attempt_id: str | None = None,
     ) -> ChainExecutionResult:
         repo_path = self.workspace_policy.resolve(execution_path)
-        store = ArtifactStore(self.artifacts_root)
+        store = ArtifactStore(self.artifacts_root, attempt_id=attempt_id)
         tool_policy = ToolPolicy(self.tool_registry)
         return self.executor.execute(
             request,
