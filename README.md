@@ -141,6 +141,24 @@ python scripts/generate_schemas.py    # regenerate ../schemas/*.schema.json
 uvicorn app.main:app --reload         # control API on http://127.0.0.1:8000
 ```
 
+## GitHub enforcement
+
+The harness runs as a GitHub Actions workflow on every pull request to `main`:
+[`.github/workflows/Agent-Analysis-Verification.yml`](.github/workflows/Agent-Analysis-Verification.yml).
+It installs the backend dev dependencies, runs `python -m pytest -q`, and runs
+`git diff --check` against the PR base. The job exposes a **stable required-check
+name**: `agent-analysis-verification`.
+
+> **Status: advisory until the check is required.** The workflow runs on every
+> PR, but a workflow that merely *runs* does not block a merge. Agent-Analysis
+> only becomes *enforcing* once `main` is configured with a branch ruleset that
+> **requires** the `agent-analysis-verification` status check before merge.
+
+Merge stays **human-controlled**. The workflow introduces **no** auto-merge,
+auto-deploy, or force-pass behavior — it only reports PASS/FAIL on the PR. See
+[`docs/github_enforcement.md`](docs/github_enforcement.md) for the exact branch
+ruleset configuration that turns this advisory check into a required gate.
+
 ## Canonical project identity
 
 ```text
@@ -178,7 +196,7 @@ agent-analysis/
     tests/                  # 256 tests
     pyproject.toml
   schemas/                  # generated JSON Schemas (Section 10)
-  docs/                     # chain_of_responsibility.md
+  docs/                     # chain_of_responsibility.md, github_enforcement.md
   artifacts/                # runtime evidence (git-ignored except .gitkeep)
   frontend/                 # Phase 6 control plane (planned — see README)
   docker-compose.yml
