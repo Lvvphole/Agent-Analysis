@@ -50,6 +50,10 @@ class ChainExecutor:
         repo_fs_path: str | Path,
         manifest: RunManifest | None = None,
         scrum: ScrumMapping | None = None,
+        agent_specs: list | None = None,
+        agent_adapters: dict | None = None,
+        tool_registry: object | None = None,
+        tool_policy: object | None = None,
     ) -> ChainExecutionResult:
         chain = resolve_chain(request.task_type.value)
         if chain is None:
@@ -67,6 +71,10 @@ class ChainExecutor:
             manifest=manifest,
             scrum=scrum,
             repo_snapshot=snapshot_repo(repo_fs_path) if repo_fs_path.exists() else {},
+            agent_specs=agent_specs or [],
+            agent_adapters=agent_adapters or {},
+            tool_registry=tool_registry,
+            tool_policy=tool_policy,
         )
 
         results: list[HandlerResult] = []
