@@ -61,9 +61,9 @@ def _clear_runs():
 @pytest.fixture
 def restore_settings():
     s = get_settings()
-    saved = (s.workspace_root, s.artifacts_root, s.provider_mode)
+    saved = (s.workspace_root, s.artifacts_root, s.provider_mode, s.production_mode)
     yield
-    s.workspace_root, s.artifacts_root, s.provider_mode = saved
+    (s.workspace_root, s.artifacts_root, s.provider_mode, s.production_mode) = saved
 
 
 # --- direct RuntimeExecutor (no API) ---------------------------------------
@@ -275,6 +275,95 @@ def test_execute_matching_run_id_executes(temp_repo, tmp_path, restore_settings)
     assert resp.status_code == 200, resp.text
     assert resp.json()["final_status"] == "PASS"
     assert resp.json()["run_id"] == "run-match"
+
+
+# --- per-attempt isolation (Epic 3) ----------------------------------------
+
+def test_execute_records_attempt_with_base_commit(git_repo, tmp_path, restore_settings):
+    # workspace_root is the git repo so base_commit is captured from real HEAD.
+    configure(workspace_root=git_repo, artifacts_root=tmp_path / "art", provider_mode="fake")
+    run_id = _create_run("run-att")
+    resp = client.post(f"/runs/{run_id}/chain/execute", json=_execute_body("run-att", git_repo))
+    assert resp.status_code == 200, resp.text
+
+    attempts = client.get(f"/runs/{run_id}/attempts").json()
+    assert len(attempts) == 1
+    att = attempts[0]
+    assert att["attempt_id"] == "run-att-a1"
+    assert att["attempt_number"] == 1
+    assert att["base_commit"] and len(att["base_commit"]) == 40  # real git SHA
+    assert att["workspace_id"] == "workspace-run-att-a1"  # opaque, not a host path
+    assert att["final_status"] == resp.json()["final_status"]
+    # Artifacts are scoped under {run_id}/{attempt_id}/.
+    assert (tmp_path / "art" / "run-att" / "run-att-a1").is_dir()
+
+
+def test_repeated_execute_increments_attempt_number(temp_repo, tmp_path, restore_settings):
+    configure(workspace_root=tmp_path, artifacts_root=tmp_path / "art", provider_mode="fake")
+    run_id = _create_run("run-retry")
+    for _ in range(2):
+        resp = client.post(
+            f"/runs/{run_id}/chain/execute", json=_execute_body("run-retry", temp_repo)
+        )
+        assert resp.status_code == 200, resp.text
+
+    attempts = client.get(f"/runs/{run_id}/attempts").json()
+    assert [a["attempt_number"] for a in attempts] == [1, 2]
+    assert [a["attempt_id"] for a in attempts] == ["run-retry-a1", "run-retry-a2"]
+    # temp_repo is not a git repo, so base_commit is unknown but still recorded.
+    assert all(a["base_commit"] is None for a in attempts)
+
+
+def test_production_mode_rejects_caller_execution_path(temp_repo, tmp_path, restore_settings):
+    configure(
+        workspace_root=tmp_path,
+        artifacts_root=tmp_path / "art",
+        provider_mode="fake",
+        production_mode=True,
+    )
+    run_id = _create_run("run-prod")
+    resp = client.post(f"/runs/{run_id}/chain/execute", json=_execute_body("run-prod", temp_repo))
+    assert resp.status_code == 422, resp.text
+    assert "caller_execution_path_forbidden" in resp.json()["detail"]
+    # Nothing executed and no attempt was recorded.
+    assert client.get(f"/runs/{run_id}/attempts").json() == []
+
+
+def test_production_mode_allocates_server_workspace(temp_repo, tmp_path, restore_settings):
+    # No caller path: the server allocates against its own workspace_root.
+    configure(
+        workspace_root=temp_repo,
+        artifacts_root=tmp_path / "art",
+        provider_mode="fake",
+        production_mode=True,
+    )
+    run_id = _create_run("run-srv")
+    body = _execute_body("run-srv", temp_repo)
+    body["execution_path"] = ""  # caller supplies none
+    resp = client.post(f"/runs/{run_id}/chain/execute", json=body)
+    assert resp.status_code == 200, resp.text
+    attempts = client.get(f"/runs/{run_id}/attempts").json()
+    assert len(attempts) == 1
+    assert attempts[0]["workspace_id"] == "workspace-run-srv-a1"  # opaque, not a host path
+
+
+def test_attempts_endpoint_does_not_leak_workspace_root(git_repo, tmp_path, restore_settings):
+    """The audit endpoint must not expose the host filesystem path it ran against."""
+    configure(workspace_root=git_repo, artifacts_root=tmp_path / "art", provider_mode="fake")
+    run_id = _create_run("run-leak")
+    resp = client.post(f"/runs/{run_id}/chain/execute", json=_execute_body("run-leak", git_repo))
+    assert resp.status_code == 200, resp.text
+
+    raw = client.get(f"/runs/{run_id}/attempts")
+    # The resolved workspace_root must appear nowhere in the serialized response.
+    assert str(get_settings().workspace_root.resolve()) not in raw.text
+    workspace_id = raw.json()[0]["workspace_id"]
+    assert workspace_id.startswith("workspace-")
+    assert not os.path.isabs(workspace_id)
+
+
+def test_attempts_endpoint_unknown_run_404():
+    assert client.get("/runs/nope/attempts").status_code == 404
 
 
 def test_no_forbidden_endpoints_present():

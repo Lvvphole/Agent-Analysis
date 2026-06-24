@@ -2,7 +2,8 @@
 
 MVP storage backend. Artifacts are written under the canonical path pattern::
 
-    artifacts/{run_id}/{name}
+    artifacts/{run_id}/{name}                 # run-scoped (default)
+    artifacts/{run_id}/{attempt_id}/{name}    # per-attempt scoped (Epic 3)
 
 and every write returns an :class:`Artifact` metadata record carrying the
 SHA-256 hash. S3-compatible storage can later implement the same surface.
@@ -22,13 +23,20 @@ def _utcnow() -> str:
 
 
 class ArtifactStore:
-    """Writes artifacts to ``{root}/{run_id}/{name}`` and hashes them."""
+    """Writes artifacts to ``{root}/{run_id}/{name}`` and hashes them.
 
-    def __init__(self, root: str | Path) -> None:
+    When an ``attempt_id`` is supplied, writes are scoped one level deeper to
+    ``{root}/{run_id}/{attempt_id}/{name}`` so evidence from different attempts
+    of the same run never collides (Epic 3).
+    """
+
+    def __init__(self, root: str | Path, *, attempt_id: str | None = None) -> None:
         self.root = Path(root)
+        self.attempt_id = attempt_id
 
     def run_dir(self, run_id: str) -> Path:
-        return self.root / run_id
+        base = self.root / run_id
+        return base / self.attempt_id if self.attempt_id else base
 
     def write(
         self,

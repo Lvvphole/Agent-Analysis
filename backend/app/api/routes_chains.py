@@ -9,6 +9,8 @@ alias. Execution runs the registered, ordered chain via the ChainExecutor
 
 from __future__ import annotations
 
+from dataclasses import asdict
+
 from fastapi import APIRouter, HTTPException
 
 from app.api.store import get_repository
@@ -16,6 +18,7 @@ from app.chains.registry import CHAIN_DEFINITIONS, resolve_chain
 from app.constants import Decision
 from app.runtime.execution_request import ChainExecuteRequest
 from app.runtime.runtime_executor import build_runtime_executor, get_settings
+from app.runtime.workspace_allocator import WorkspaceAllocator
 from app.runtime.workspace_policy import WorkspacePolicyError
 from app.schemas.chain import (
     ChainExecutionResult,
@@ -185,11 +188,41 @@ def execute_chain(run_id: str, body: ChainExecuteRequest) -> ChainExecutionResul
         )
 
     settings = get_settings()
-    execution_path = body.execution_path or str(settings.workspace_root)
+    # Production mode: the server owns workspace allocation, so a caller-supplied
+    # execution_path is refused outright (closes the path-injection surface).
+    if settings.production_mode and body.execution_path:
+        raise HTTPException(
+            status_code=422,
+            detail={
+                "caller_execution_path_forbidden": (
+                    "execution_path is not accepted in production mode; "
+                    "the server allocates the workspace"
+                )
+            },
+        )
+    if settings.production_mode:
+        source_path = str(settings.workspace_root)
+    else:
+        source_path = body.execution_path or str(settings.workspace_root)
+
     runtime = build_runtime_executor(settings)
+    allocator = WorkspaceAllocator(runtime.workspace_policy)
     try:
-        result = runtime.execute(request, execution_path=execution_path)
+        # Server-owned per-attempt allocation: records base_commit + an opaque
+        # workspace_id and mints the attempt id before any execution (Epic 3). The
+        # validated host path stays internal on allocation.execution_path; the
+        # attempt's workspace_id is opaque so the audit surface never leaks it.
+        allocation = allocator.allocate(record, source_path)
+        attempt = allocation.attempt
+        result = runtime.execute(
+            request,
+            execution_path=allocation.execution_path,
+            attempt_id=attempt.attempt_id,
+        )
+        attempt.final_status = result.final_status
+        record.attempts.append(attempt)
     except WorkspacePolicyError as exc:
+        # A bad workspace never executes and records no attempt.
         result = _blocked_result(run_id, request, f"workspace policy: {exc}")
 
     record.chain_execution_result = result
@@ -208,3 +241,12 @@ def get_chain_results(run_id: str):
     if record.chain_result is not None:
         return record.chain_result
     raise HTTPException(status_code=404, detail="no chain planned or executed for this run")
+
+
+@router.get("/runs/{run_id}/attempts")
+def get_run_attempts(run_id: str) -> list[dict]:
+    """The server-owned execution attempts recorded for a run (audit surface)."""
+    record = get_repository().get(run_id)
+    if record is None:
+        raise HTTPException(status_code=404, detail="run not found")
+    return [asdict(attempt) for attempt in record.attempts]

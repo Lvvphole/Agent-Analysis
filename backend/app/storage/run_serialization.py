@@ -7,12 +7,13 @@ inside the Postgres adapter) means it can be unit-tested with no database.
 
 from __future__ import annotations
 
+from dataclasses import asdict
 from typing import Any
 
 from app.schemas.chain import ChainExecutionResult
 from app.schemas.run_manifest import RunManifest
 from app.schemas.verifier_report import VerifierReport
-from app.storage.run_records import RunRecord
+from app.storage.run_records import RunAttempt, RunRecord
 
 
 def record_to_snapshot(record: RunRecord) -> dict[str, Any]:
@@ -34,6 +35,7 @@ def record_to_snapshot(record: RunRecord) -> dict[str, Any]:
             else None
         ),
         "llm_invocations": list(record.llm_invocations),
+        "attempts": [asdict(attempt) for attempt in record.attempts],
     }
 
 
@@ -56,4 +58,5 @@ def record_from_snapshot(snapshot: dict[str, Any]) -> RunRecord:
         ),
         llm_invocations=list(snapshot.get("llm_invocations") or []),
         tenant_id=snapshot.get("tenant_id"),
+        attempts=[RunAttempt(**a) for a in snapshot.get("attempts") or []],
     )

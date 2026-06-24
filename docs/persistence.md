@@ -63,7 +63,7 @@ adapter applies on init. It defines six tables:
 | Table | Purpose |
 | --- | --- |
 | `runs` | Authoritative run snapshot (`snapshot` JSONB) + indexed columns (`state`, `final_status`, `verifier_decision`, `tenant_id`). |
-| `run_attempts` | One row per execution attempt (`base_commit`, `workspace_id`). Populated by Epic 3. |
+| `run_attempts` | One row per execution attempt (`base_commit`, `workspace_id`, `final_status`). Populated by Epic 3 (per-attempt isolation) — see [`workspace_isolation.md`](workspace_isolation.md). Projected from `RunRecord.attempts` via upsert, so the `evidence_artifacts.attempt_id` FK is never nulled. |
 | `handler_results` | Ordered projection of `ChainExecutionResult.handler_results`. |
 | `gate_results` | One row per gate result emitted by a handler. |
 | `verifier_decisions` | Durable audit of the verifier's decision (who decided, same-agent ban). |

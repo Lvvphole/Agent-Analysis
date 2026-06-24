@@ -44,6 +44,22 @@ class GitRunner:
             return False
         return r.returncode == 0 and r.stdout.strip() == "true"
 
+    def head_commit(self) -> str | None:
+        """Return the HEAD commit SHA, or ``None`` when not a repo / on error.
+
+        Used by per-attempt isolation (Epic 3) to record the ``base_commit`` an
+        attempt ran against. Capture-only, like the rest of this runner.
+        """
+        if not self.is_repo():
+            return None
+        try:
+            r = self._run("rev-parse", "HEAD")
+        except (subprocess.TimeoutExpired, FileNotFoundError):
+            return None
+        if r.returncode != 0:
+            return None
+        return r.stdout.strip() or None
+
     def capture(self) -> GitCapture:
         """Capture the current diff against HEAD, including new files.
 

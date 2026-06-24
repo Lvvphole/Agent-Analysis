@@ -116,6 +116,31 @@ class PostgresRunRepository(RunRepository):
     def _project(self, cur, record: RunRecord) -> None:
         """Project queryable audit rows from the record (write-side only)."""
         Jsonb = self._Jsonb
+        # Per-attempt rows (Epic 3). Upsert rather than delete+reinsert so the
+        # evidence_artifacts.attempt_id foreign key is never nulled.
+        for attempt in record.attempts:
+            cur.execute(
+                """
+                INSERT INTO run_attempts
+                    (attempt_id, run_id, attempt_number, base_commit,
+                     workspace_id, final_status)
+                VALUES (%s, %s, %s, %s, %s, %s)
+                ON CONFLICT (attempt_id) DO UPDATE SET
+                    attempt_number = EXCLUDED.attempt_number,
+                    base_commit = EXCLUDED.base_commit,
+                    workspace_id = EXCLUDED.workspace_id,
+                    final_status = EXCLUDED.final_status
+                """,
+                (
+                    attempt.attempt_id,
+                    record.run_id,
+                    attempt.attempt_number,
+                    attempt.base_commit,
+                    attempt.workspace_id,
+                    attempt.final_status,
+                ),
+            )
+
         result = record.chain_execution_result
         if result is not None:
             for seq, hr in enumerate(result.handler_results):
