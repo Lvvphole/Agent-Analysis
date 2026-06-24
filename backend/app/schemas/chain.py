@@ -23,6 +23,7 @@ from app.constants import (
     Decision,
     RunType,
 )
+from app.schemas.artifact import Artifact
 from app.schemas.gate_result import GateResult
 
 
@@ -176,3 +177,8 @@ class ChainExecutionResult(BaseModel):
     agent_self_certification_used: bool = False
     auto_merge: bool = False
     auto_deploy: bool = False
+    # In-process carrier for the hashed evidence artifacts produced during the
+    # run, so the API layer can persist/project them into evidence_artifacts.
+    # exclude=True keeps it out of every API response — Artifact.path is an
+    # absolute host path and must never be exposed (cf. the workspace_id leak).
+    evidence_artifacts: list[Artifact] = Field(default_factory=list, exclude=True)

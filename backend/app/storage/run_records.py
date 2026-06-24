@@ -11,6 +11,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 
+from app.schemas.artifact import Artifact
 from app.schemas.chain import ChainExecutionResult
 from app.schemas.run_manifest import RunManifest
 from app.schemas.verifier_report import VerifierReport
@@ -50,3 +51,7 @@ class RunRecord:
     # Per-attempt isolation (Epic 3). Embedded in the record so it round-trips
     # through the snapshot and needs no new RunRepository port method.
     attempts: list[RunAttempt] = field(default_factory=list)
+    # Hashed evidence artifacts produced across the run's attempts (Epic 6).
+    # Embedded like attempts; projected into evidence_artifacts. Never returned
+    # by the API — Artifact.path is an internal host path.
+    artifacts: list[Artifact] = field(default_factory=list)

@@ -221,6 +221,10 @@ def execute_chain(run_id: str, body: ChainExecuteRequest) -> ChainExecutionResul
         )
         attempt.final_status = result.final_status
         record.attempts.append(attempt)
+        # Capture this attempt's hashed evidence artifacts for durable projection
+        # into evidence_artifacts (Epic 6). Each artifact already carries its
+        # attempt_id from the store, so retries accumulate across attempts.
+        record.artifacts.extend(result.evidence_artifacts)
     except WorkspacePolicyError as exc:
         # A bad workspace never executes and records no attempt.
         result = _blocked_result(run_id, request, f"workspace policy: {exc}")

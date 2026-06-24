@@ -86,8 +86,10 @@ anywhere on the surface.
 
 The current runtime is the read-only `AI_READINESS_AUDIT` slice, so this layer is
 *logical* allocation. A fresh per-attempt checkout/copy and reset-on-retry land
-with live implementation execution; writing `evidence_artifacts` rows lands with
-the object-backed artifact store (Epic 6).
+with live implementation execution. Writing `evidence_artifacts` rows (each linked
+to its producing attempt via `attempt_id`) is **done** for the local artifact
+store — see [`persistence.md`](persistence.md); swapping that store for real object
+storage remains deferred (Epic 6, slice b).
 
 ## Tests
 

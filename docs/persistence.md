@@ -67,7 +67,7 @@ adapter applies on init. It defines six tables:
 | `handler_results` | Ordered projection of `ChainExecutionResult.handler_results`. |
 | `gate_results` | One row per gate result emitted by a handler. |
 | `verifier_decisions` | Durable audit of the verifier's decision (who decided, same-agent ban). |
-| `evidence_artifacts` | Content-addressed artifacts (`sha256`, `object_uri`, `used_as_evidence`). Populated by Epic 6; quarantined LLM narrative stays `used_as_evidence = FALSE`. |
+| `evidence_artifacts` | Content-addressed artifacts (`sha256`, `object_uri`, `used_as_evidence`), linked to the producing attempt via `attempt_id`. Projected from `RunRecord.artifacts` (delete + reinsert per save). The on-disk path lives in `object_uri` (operator-queryable) and is **never** returned by the API. `used_as_evidence` is `TRUE` for ledgered evidence; quarantined LLM narrative is never added to `RunRecord.artifacts`, so it never lands here. |
 
 `tenant_id` columns are present now so Epic 5 (multi-user) needs no migration to
 become tenant-aware.

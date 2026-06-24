@@ -35,7 +35,7 @@ from tests.conftest import make_chain_request
 pytest.importorskip("httpx")
 from fastapi.testclient import TestClient  # noqa: E402
 
-from app.api.store import registry  # noqa: E402
+from app.api.store import get_repository, registry  # noqa: E402
 from app.main import app  # noqa: E402
 
 client = TestClient(app)
@@ -364,6 +364,39 @@ def test_attempts_endpoint_does_not_leak_workspace_root(git_repo, tmp_path, rest
 
 def test_attempts_endpoint_unknown_run_404():
     assert client.get("/runs/nope/attempts").status_code == 404
+
+
+# --- evidence artifacts (Epic 6) -------------------------------------------
+
+def test_execute_records_evidence_artifacts_with_attempt_link(git_repo, tmp_path, restore_settings):
+    """The run's hashed evidence artifacts are captured on the record and tagged
+    with the producing attempt, ready for evidence_artifacts projection."""
+    configure(workspace_root=git_repo, artifacts_root=tmp_path / "art", provider_mode="fake")
+    run_id = _create_run("run-ev")
+    resp = client.post(f"/runs/{run_id}/chain/execute", json=_execute_body("run-ev", git_repo))
+    assert resp.status_code == 200, resp.text
+
+    record = get_repository().get(run_id)
+    assert record.artifacts, "expected evidence artifacts to be recorded"
+    # Every artifact links to this run's single attempt and is hashed.
+    assert all(a.attempt_id == "run-ev-a1" for a in record.artifacts)
+    assert all(len(a.hash) == 64 for a in record.artifacts)
+
+
+def test_evidence_artifacts_carrier_excluded_from_responses(git_repo, tmp_path, restore_settings):
+    """The evidence_artifacts carrier holds Artifact.path (an internal host path),
+    so it must never appear in an API response (cf. the workspace_id leak)."""
+    configure(workspace_root=git_repo, artifacts_root=tmp_path / "art", provider_mode="fake")
+    run_id = _create_run("run-ev2")
+    execute = client.post(f"/runs/{run_id}/chain/execute", json=_execute_body("run-ev2", git_repo))
+    assert execute.status_code == 200, execute.text
+    results = client.get(f"/runs/{run_id}/chain/results")
+    assert results.status_code == 200, results.text
+
+    # The carrier is captured on the record but excluded from every response body.
+    assert get_repository().get(run_id).artifacts
+    for raw in (execute.json(), results.json()):
+        assert "evidence_artifacts" not in raw
 
 
 def test_no_forbidden_endpoints_present():
