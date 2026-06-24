@@ -216,6 +216,30 @@ def test_api_execute_and_results(temp_repo, tmp_path, restore_settings):
     assert got.json()["verifier_decision"] == "PASS"
 
 
+def test_api_responses_do_not_leak_artifact_paths(git_repo, tmp_path, restore_settings):
+    """artifacts_created/evidence_refs carry absolute host paths and must not
+    appear in the execute or results responses (the durable evidence_artifacts
+    table is the audit record; runs.snapshot keeps the full result internally)."""
+    configure(workspace_root=git_repo, artifacts_root=tmp_path / "art", provider_mode="fake")
+    run_id = _create_run("run-leak2")
+    execute = client.post(
+        f"/runs/{run_id}/chain/execute", json=_execute_body("run-leak2", git_repo)
+    )
+    assert execute.status_code == 200, execute.text
+    results = client.get(f"/runs/{run_id}/chain/results")
+    assert results.status_code == 200
+
+    artifacts_root = str(get_settings().artifacts_root.resolve())
+    for resp in (execute, results):
+        assert artifacts_root not in resp.text
+        handler_results = resp.json()["handler_results"]
+        assert handler_results, "expected at least one handler result"
+        # The path-bearing fields are stripped from the API surface entirely.
+        for hr in handler_results:
+            assert "artifacts_created" not in hr
+            assert "evidence_refs" not in hr
+
+
 def test_api_execute_arbitrary_path_blocks(temp_repo, tmp_path, restore_settings):
     configure(workspace_root=tmp_path, artifacts_root=tmp_path / "art", provider_mode="fake")
     run_id = _create_run()

@@ -57,6 +57,22 @@ def _blocked_result(run_id: str, request: ChainRequest, reason: str) -> ChainExe
     )
 
 
+# Handler results carry absolute artifact paths in artifacts_created /
+# evidence_refs (Artifact.path is a host filesystem path). Those are internal —
+# the durable evidence_artifacts table is the audit record — so strip them from
+# the API response surface. The internal runs.snapshot keeps the full result.
+_API_EXCLUDED_HANDLER_FIELDS = {"artifacts_created", "evidence_refs"}
+
+
+def _result_response(result: ChainExecutionResult) -> dict:
+    """Serialize a chain result for the API with host-path-bearing handler
+    fields removed (no merge/deploy surface is added; this only narrows output)."""
+    return result.model_dump(
+        mode="json",
+        exclude={"handler_results": {"__all__": _API_EXCLUDED_HANDLER_FIELDS}},
+    )
+
+
 def _definition_dict(chain_id: str) -> dict:
     d = CHAIN_DEFINITIONS[chain_id]
     return {
@@ -121,7 +137,7 @@ def plan_chain(run_id: str, request: ChainRequest) -> dict:
 
 
 @router.post("/runs/{run_id}/chain/execute")
-def execute_chain(run_id: str, body: ChainExecuteRequest) -> ChainExecutionResult:
+def execute_chain(run_id: str, body: ChainExecuteRequest) -> dict:
     """Execute the registered chain for a run end-to-end and store the result.
 
     Safe by construction: resolves only registered chains, ignores any
@@ -232,7 +248,7 @@ def execute_chain(run_id: str, body: ChainExecuteRequest) -> ChainExecutionResul
     record.chain_execution_result = result
     record.state = "EXECUTE_CHAIN"
     repo.save(record)
-    return result
+    return _result_response(result)
 
 
 @router.get("/runs/{run_id}/chain/results")
@@ -241,7 +257,7 @@ def get_chain_results(run_id: str):
     if record is None:
         raise HTTPException(status_code=404, detail="run not found")
     if record.chain_execution_result is not None:
-        return record.chain_execution_result
+        return _result_response(record.chain_execution_result)
     if record.chain_result is not None:
         return record.chain_result
     raise HTTPException(status_code=404, detail="no chain planned or executed for this run")
