@@ -20,6 +20,7 @@ from app.schemas.chain import (
     HandlerStatus,
     HandlerType,
 )
+from app.schemas.artifact import Artifact
 from app.schemas.gate_result import GateResult
 from app.schemas.run_manifest import RunManifest
 from app.schemas.verifier_report import VerifierReport
@@ -76,6 +77,19 @@ def _make_record(manifest: RunManifest, run_id: str = "run-1") -> RunRecord:
                 created_at="2026-06-23T00:00:00+00:00",
             )
         ],
+        artifacts=[
+            Artifact(
+                artifact_id=f"{run_id}:readiness.json",
+                run_id=run_id,
+                task_id="task-1",
+                artifact_type="REPORT",
+                path=f"/var/artifacts/{run_id}/{run_id}-a1/readiness.json",
+                hash="a" * 64,
+                attempt_id=f"{run_id}-a1",
+                created_at="2026-06-23T00:00:00+00:00",
+                recorded_by="AnalysisAgent",
+            )
+        ],
     )
 
 
@@ -88,6 +102,7 @@ def _assert_same(a: RunRecord, b: RunRecord) -> None:
     assert a.llm_invocations == b.llm_invocations
     assert a.tenant_id == b.tenant_id
     assert a.attempts == b.attempts
+    assert a.artifacts == b.artifacts
 
 
 # --- serialization (no database) --------------------------------------------
@@ -228,6 +243,35 @@ def test_save_projects_run_attempts(manifest):
     stored_workspace_id = rows[0][2]
     assert not stored_workspace_id.startswith(os.sep)
     assert not os.path.isabs(stored_workspace_id)
+
+
+@pytest.mark.skipif(not _PG_DSN, reason="AGENT_ANALYSIS_TEST_DATABASE_URL not set")
+def test_save_projects_evidence_artifacts(manifest):
+    """Embedded artifacts project into evidence_artifacts, linked to the attempt
+    that produced them (Epic 6)."""
+    repo = _pg_repo()
+    repo.add(_make_record(manifest))
+    with repo._connect() as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                "SELECT attempt_id, tenant_id, artifact_type, sha256, object_uri, "
+                "used_as_evidence FROM evidence_artifacts WHERE run_id = 'run-1'"
+            )
+            rows = cur.fetchall()
+    assert len(rows) == 1
+    attempt_id, tenant_id, artifact_type, sha256, object_uri, used = rows[0]
+    assert attempt_id == "run-1-a1"  # FK links to the producing attempt
+    assert artifact_type == "REPORT"
+    assert sha256 == "a" * 64
+    assert object_uri.endswith("readiness.json")
+    assert used is True
+
+    # Re-saving the same run is idempotent (delete + reinsert, no duplicate rows).
+    repo.save(_make_record(manifest))
+    with repo._connect() as conn:
+        with conn.cursor() as cur:
+            cur.execute("SELECT count(*) FROM evidence_artifacts WHERE run_id = 'run-1'")
+            assert cur.fetchone()[0] == 1
 
 
 @pytest.mark.skipif(not _PG_DSN, reason="AGENT_ANALYSIS_TEST_DATABASE_URL not set")

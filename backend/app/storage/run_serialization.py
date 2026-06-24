@@ -10,6 +10,7 @@ from __future__ import annotations
 from dataclasses import asdict
 from typing import Any
 
+from app.schemas.artifact import Artifact
 from app.schemas.chain import ChainExecutionResult
 from app.schemas.run_manifest import RunManifest
 from app.schemas.verifier_report import VerifierReport
@@ -36,6 +37,7 @@ def record_to_snapshot(record: RunRecord) -> dict[str, Any]:
         ),
         "llm_invocations": list(record.llm_invocations),
         "attempts": [asdict(attempt) for attempt in record.attempts],
+        "artifacts": [a.model_dump(mode="json") for a in record.artifacts],
     }
 
 
@@ -59,4 +61,5 @@ def record_from_snapshot(snapshot: dict[str, Any]) -> RunRecord:
         llm_invocations=list(snapshot.get("llm_invocations") or []),
         tenant_id=snapshot.get("tenant_id"),
         attempts=[RunAttempt(**a) for a in snapshot.get("attempts") or []],
+        artifacts=[Artifact(**a) for a in snapshot.get("artifacts") or []],
     )

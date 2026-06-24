@@ -143,6 +143,7 @@ class ChainExecutor:
             agent_self_certification_used=context.agent_self_certification_used,
             auto_merge=False,
             auto_deploy=False,
+            evidence_artifacts=list(context.artifacts),
         )
 
     # --- helpers ------------------------------------------------------------

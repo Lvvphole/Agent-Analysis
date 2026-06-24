@@ -105,11 +105,14 @@ These are intentionally **not** claimed as done:
 
 - Temporal workflow engine integration (the workflows are written as plain,
   Temporal-ready orchestration for now).
-- Async worker execution, tenant isolation/auth, and object-backed artifact
+- Async worker execution, tenant isolation/auth, and **object-backed** artifact
   storage (Epics 4–6). Run persistence itself is **done**: runs live behind a
   `RunRepository` port with an in-memory default and a durable PostgreSQL adapter
   (`AGENT_ANALYSIS_DATABASE_URL`); see [`docs/persistence.md`](docs/persistence.md).
-  The `runs`/`evidence_artifacts` schema reserves `tenant_id` for Epic 5.
+  Evidence persistence is also **done** for the local store — hashed artifacts
+  project into `evidence_artifacts`, linked to the producing attempt, with on-disk
+  paths kept server-side; only the swap to S3-style object storage remains. The
+  `runs`/`evidence_artifacts` schema reserves `tenant_id` for Epic 5.
 - Docker sandbox runner and GitHub push/PR integration (the *policies* and
   *gates* that govern them exist; those side-effecting runners do not). The git
   runner (read-only working-tree capture) and allowlisted command runner *are*

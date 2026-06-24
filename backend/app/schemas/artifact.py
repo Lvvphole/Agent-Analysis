@@ -19,5 +19,8 @@ class Artifact(BaseModel):
     path: str
     # SHA-256 hex digest. Every artifact must be hashed (Section 12.4).
     hash: str
+    # The attempt that produced this artifact (Epic 3 per-attempt scoping). None
+    # for run-scoped writes that did not run under an attempt.
+    attempt_id: str | None = None
     created_at: str = ""
     recorded_by: str = ""

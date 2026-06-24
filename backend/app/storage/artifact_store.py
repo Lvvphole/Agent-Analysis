@@ -63,6 +63,7 @@ class ArtifactStore:
             artifact_type=artifact_type,
             path=str(path),
             hash=digest,
+            attempt_id=self.attempt_id,
             created_at=_utcnow(),
             recorded_by=recorded_by,
         )

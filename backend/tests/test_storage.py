@@ -28,6 +28,23 @@ def test_artifact_store_writes_and_hashes(tmp_path):
     )
     assert artifact.hash == hash_text("--- a\n+++ b\n")
     assert (tmp_path / "run-1" / "diff.patch").exists()
+    # No attempt scoping → no attempt linkage on the artifact.
+    assert artifact.attempt_id is None
+
+
+def test_artifact_store_stamps_attempt_id(tmp_path):
+    """Per-attempt scoping (Epic 3) stamps the attempt onto each artifact so it
+    can be projected into evidence_artifacts (Epic 6)."""
+    store = ArtifactStore(tmp_path, attempt_id="run-1-a1")
+    artifact = store.write(
+        run_id="run-1",
+        task_id="task-1",
+        name="diff.patch",
+        data="x",
+        artifact_type="DIFF",
+    )
+    assert artifact.attempt_id == "run-1-a1"
+    assert (tmp_path / "run-1" / "run-1-a1" / "diff.patch").exists()
 
 
 def test_evidence_writer_requires_hash():

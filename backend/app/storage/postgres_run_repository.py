@@ -110,6 +110,7 @@ class PostgresRunRepository(RunRepository):
                 cur.execute("DELETE FROM handler_results WHERE run_id = %s", (record.run_id,))
                 cur.execute("DELETE FROM gate_results WHERE run_id = %s", (record.run_id,))
                 cur.execute("DELETE FROM verifier_decisions WHERE run_id = %s", (record.run_id,))
+                cur.execute("DELETE FROM evidence_artifacts WHERE run_id = %s", (record.run_id,))
                 self._project(cur, record)
             conn.commit()
 
@@ -138,6 +139,29 @@ class PostgresRunRepository(RunRepository):
                     attempt.base_commit,
                     attempt.workspace_id,
                     attempt.final_status,
+                ),
+            )
+
+        # Evidence artifacts (Epic 6). Inserted after run_attempts so the
+        # attempt_id FK target always exists. The on-disk path lives in
+        # object_uri (operator-queryable, never API-exposed). used_as_evidence is
+        # TRUE: quarantined agent narrative is never added to record.artifacts.
+        for artifact in record.artifacts:
+            cur.execute(
+                """
+                INSERT INTO evidence_artifacts
+                    (run_id, attempt_id, tenant_id, artifact_type, sha256,
+                     object_uri, used_as_evidence)
+                VALUES (%s, %s, %s, %s, %s, %s, %s)
+                """,
+                (
+                    record.run_id,
+                    artifact.attempt_id,
+                    record.tenant_id,
+                    artifact.artifact_type,
+                    artifact.hash,
+                    artifact.path,
+                    True,
                 ),
             )
 
